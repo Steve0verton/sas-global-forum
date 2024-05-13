@@ -1,0 +1,134 @@
+1                                                          The SAS System                          09:50 Tuesday, September 17, 2013
+
+1          ;*';*";*/;quit;run;
+2          OPTIONS PAGENO=MIN;
+3          %LET _CLIENTTASKLABEL='BuildTransactionSummaryCubeFULL v2';
+4          %LET _CLIENTPROJECTPATH='';
+5          %LET _CLIENTPROJECTNAME='';
+6          %LET _SASPROGRAMFILE='/projects/SGF2013/programs/BuildTransactionSummaryCubeFULL v2.sas';
+7          
+8          ODS _ALL_ CLOSE;
+9          OPTIONS DEV=ACTIVEX;
+10         GOPTIONS XPIXELS=0 YPIXELS=0;
+11         FILENAME EGHTML TEMP;
+12         ODS HTML(ID=EGHTML) FILE=EGHTML
+13             ENCODING='utf-8'
+14             STYLE=HtmlBlue
+15             STYLESHEET=(URL="file:///D:/SAS94/SASEnterpriseGuide/6.1/Styles/HtmlBlue.css")
+16             ATTRIBUTES=("CODEBASE"="http://www2.sas.com/codebase/graph/v94/sasgraph.exe#version=9,4")
+17             NOGTITLE
+18             NOGFOOTNOTE
+19             GPATH=&sasworklocation
+20         ;
+NOTE: Writing HTML(EGHTML) Body file: EGHTML
+21         
+22         GOPTIONS ACCESSIBLE;
+23         
+24         /* Mid level aggregates */
+25         proc olap
+26            CUBE= "&cube"
+27            CONCURRENT             = 4
+28            ASYNCINDEXLIMIT        = 2
+29            MAXTHREADS             = 2
+30            TEST_LEVEL             = 26;
+31         
+32            METASVR
+33               HOST        = "enterprise"
+34               PORT        = 8561
+35               OLAP_SCHEMA = "SASApp - OLAP Schema";
+36         
+37            AGGREGATION MonthYear PartyType NAICS PartyNumber AccountNumber
+38               / NAME      = 'Month Year Reporting 1';
+39            AGGREGATION MonthYear State County City
+40               / NAME      = 'Month Year Reporting 2';
+41            AGGREGATION MonthYear State
+42               / NAME      = 'Month Year Reporting 3';
+43            AGGREGATION MonthYear TransactionType TransactionCategory
+44               / NAME      = 'Month Year Reporting 4';
+45            AGGREGATION MonthYear TransactionType TransactionCategory State County City
+46               / NAME      = 'Month Year Reporting 5';
+47            AGGREGATION MonthYear NAICS
+48               / NAME      = 'Month Year Reporting 6';
+49            AGGREGATION MonthYear NAICS PartyNumber
+50               / NAME      = 'Month Year Reporting 7';
+51            AGGREGATION MonthYear PartyType
+52               / NAME      = 'Month Year Reporting 8';
+53            AGGREGATION MonthYear PartyType NAICS
+54               / NAME      = 'Month Year Reporting 9';
+55            AGGREGATION MonthYear NAICS PartyType PartyNumber
+56               /  NAME     = 'Month Year Reporting 10';
+57            AGGREGATION MonthYear AccountNumber
+2                                                          The SAS System                          09:50 Tuesday, September 17, 2013
+
+58               / NAME      = 'Month Year Reporting 11';
+59            AGGREGATION MonthYear PartyNumber
+60               / NAME      = 'Month Year Reporting 12';
+61            AGGREGATION MonthYear TransactionType
+62               / NAME      = 'Month Year Reporting 13';
+63            AGGREGATION MonthYear PartyType PartyNumber
+64               / NAME      = 'Month Year Reporting 14';
+65            AGGREGATION MonthYear TransactionType TransactionCategory NAICS PartyNumber
+66               / NAME      = 'Month Year Reporting 15';
+67            AGGREGATION MonthYear TransactionType TransactionCategory NAICS
+68               / NAME      = 'Month Year Reporting 16';
+69         
+70         run;
+
+TSTLVL: Update enabled version of 9.2.
+NOTE: Workpath: "/tmp/SAS_work16270000321F_enterprise/SAS_work23C80000321F_enterprise"
+NOTE: TEST_LEVEL (16) is set.
+MEMSIZE     = 10485760 KB
+REALMEMSIZE = 10485760 KB
+SUMSIZE     = 10485760 KB
+NOTE: Available memory for 'hierarchy' stage: 8377260 KB
+NOTE: The files to share memory are 6.
+NOTE: Setting memory to 1047157 kb where MEMSIZE and/or REALMEMSIZE set
+
+
+NOTE: Memory used for star schema index processing determined by MEMSIZE/REALMEMSIZE and is 1047157 kb
+IN PROGRESS: Subaggregation creation
+(TSTLVL TIMING)Begin time for making subaggregations: :9H:52M:15S
+NOTE: Memory to make aggregations set to 8180 MB.
+NOTE: Setting number of aggregations to create in parallel equal to 1.
+NOTE: Setting the limit on the number of indexes that may be created asynchronously to 2.
+         ERROR: An error has occurred.
+ERROR: The server encountered an error while processing or executing SQL against a source data table. If the data source issued a 
+more specific error it will appear in conjunction with this message:
+NOTE: Processing of all cube aggregations is completed.
+(TSTLVL TIMING)End time for making subaggregations: :3H:56M:43S
+COMPLETED:   Subaggregation creation
+(TSTLVL TIMING) Clocktime  : 65068.3108 sec
+(TSTLVL TIMING) Systime    : 622.8700 sec
+(TSTLVL TIMING) CPUtime    : 63429.9200 sec
+
+ERROR: A failure occurred as a result of a problem in creating cube aggregations.
+ERROR: New aggregations cannot be created for the existing cube. All AGGREGATION statements will be ignored. 
+
+ERROR: An error was encountered while deleting or adding aggregations for the "Transaction Summary" cube.
+WARNING: No aggregations have been added to or deleted from the "Transaction Summary" cube.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           18:05:14.74
+      user cpu time       17:37:09.93
+      system cpu time     10:35.22
+      memory              8036462.50k
+      OS Memory           8054344.00k
+      Timestamp           09/18/2013 03:56:43 AM
+      Step Count                        5  Switch Count  361
+      Page Faults                       39
+      Page Reclaims                     2028296
+3                                                          The SAS System                          09:50 Tuesday, September 17, 2013
+
+      Page Swaps                        0
+      Voluntary Context Switches        4882277
+      Involuntary Context Switches      3288271
+      Block Input Operations            9297256
+      Block Output Operations           150963280
+      
+71         
+72         %errorcheck;
+Current SYSCC = 1012
+*********** ERRORS/WARNINGS DETECTED: ABORTING **********
+ERROR: Execution canceled by an %ABORT CANCEL statement.
+NOTE: The SAS System stopped processing due to receiving a CANCEL request.

@@ -1,0 +1,931 @@
+1                                                          The SAS System                               08:36 Friday, March 15, 2013
+
+1          ;*';*";*/;quit;run;
+2          OPTIONS PAGENO=MIN;
+3          %LET _CLIENTTASKLABEL='BuildCandySalesAdvancedCube';
+4          %LET _CLIENTPROJECTPATH='';
+5          %LET _CLIENTPROJECTNAME='';
+6          %LET _SASPROGRAMFILE='/projects/SGF2013/programs/BuildCandySalesAdvancedCube.sas';
+7          
+8          ODS _ALL_ CLOSE;
+9          OPTIONS DEV=ACTIVEX;
+10         GOPTIONS XPIXELS=0 YPIXELS=0;
+11         FILENAME EGHTML TEMP;
+12         ODS HTML(ID=EGHTML) FILE=EGHTML ENCODING='utf-8' STYLE=HtmlBlue
+12       ! STYLESHEET=(URL="file:///C:/SAS/SASEnterpriseGuide/5.1/Styles/HtmlBlue.css")
+12       ! ATTRIBUTES=("CODEBASE"="http://www2.sas.com/codebase/graph/v93/sasgraph.exe#version=9,3") NOGTITLE NOGFOOTNOTE
+12       ! GPATH=&sasworklocation;
+NOTE: Writing HTML(EGHTML) Body file: EGHTML
+13         
+14         GOPTIONS ACCESSIBLE;
+15         
+16         options fullstimer;
+17         options SASTRACE=',,,ds' sastraceloc=saslog nostsuffix;
+18         %let syssumtrace=3;
+19         
+20         proc options group=performance; run;
+
+    SAS (r) Proprietary Software Release 9.3  TS1M2
+
+
+Group=PERFORMANCE
+ ARMAGENT=         ARM Agent to use to collect ARM records
+ ARMLOC=ARMLOG.LOG Identify location where ARM records are to be written
+ ARMSUBSYS=(ARM_NONE)
+                   Enable/Disable ARMing of SAS subsystems
+ BUFNO=1           Number of buffers for each SAS data set
+ BUFSIZE=8388608   Size of buffer for page of SAS data set
+ CGOPTIMIZE=3      Control code generation optimization
+ CMPMODEL=BOTH     Identify CMP model storage type
+ CMPOPT=(NOEXTRAMATH NOMISSCHECK NOPRECISE NOGUARDCHECK NOGENSYMNAMES NOFUNCDIFFERENCING)
+                   Enable SAS compiler performance optimizations
+ COMPRESS=NO       Specifies whether to compress observations in output SAS data sets
+ CPUCOUNT=4        Number of processors available.
+ NODBIDIRECTEXEC   Do not use SQL optimization with SAS/ACCESS engines
+ DBSLICEPARM=(THREADED_APPS, 2)
+                   Alter DBMS engine threaded read behavior by expanding or disallowing threaded reads.
+ MAXSEGRATIO=75    SPD Engine pre-evaluation phase time ratio
+ MEXECSIZE=65536   Maximum size for a macro to execute in memory
+ MINPARTSIZE=16777216
+                   Minimum partition size when creating SPD Engine files
+ SORTSIZE=21474836480
+                   Size parameter for sort
+ SPDEINDEXSORTSIZE=33554432
+                   Identifies memory to be used for SPD Engine asynchronous index create or append
+ SPDEMAXTHREADS=4  Maximum number of threads for SPD Engine processing
+ SPDESORTSIZE=33554432
+                   Memory for SPD Engine sort operations
+ SPDEUTILLOC=      Location where SPD Engine temporary utility files are created
+ SPDEWHEVAL=COST   Specifies SPD Engine WHERE statement evaluation strategy
+ SQLGENERATION=(NONE DBMS='TERADATA DB2 ORACLE NETEZZA ASTER GREENPLM')
+2                                                          The SAS System                               08:36 Friday, March 15, 2013
+
+                   Identify when to perform SQL generation for SAS Procedure input processing
+ SQLREDUCEPUT=DBMS PROC SQL optimization for put() functions
+ SQLREDUCEPUTOBS=0 PROC SQL optimization for put() functions observation threshold
+ SQLREDUCEPUTVALUES=0
+                   PROC SQL optimization for put() functions value threshold
+ THREADS           Threads are available for use with features of the SAS System that support threading
+ MEMSIZE=26843545600
+                   Specifies the limit on the total amount of memory to be used by the SAS System
+NOTE: PROCEDURE OPTIONS used (Total process time):
+      real time           0.00 seconds
+      user cpu time       0.00 seconds
+      system cpu time     0.00 seconds
+      memory              20.46k
+      OS Memory           11812.00k
+      Timestamp           03/15/2013 08:38:24 AM
+      Page Faults                       0
+      Page Reclaims                     19
+      Page Swaps                        0
+      Voluntary Context Switches        0
+      Involuntary Context Switches      0
+      Block Input Operations            0
+      Block Output Operations           8
+      
+
+21         
+22         proc olap
+23            CUBE                   = "/Projects/SGF2013/Cubes/Candy Sales Advanced"
+ODBC: AUTOCOMMIT turned ON for connection id 0
+ 
+ODBC_1: Prepared: on connection 0
+SELECT * FROM public.FACT_CANDY_SALES
+ 
+24            PATH                   = '/projects/SGF2013/cubes'
+25            DESCRIPTION            = 'Candy sales demo cube for SGF2013'
+26            FACT                   = defiant.FACT_CANDY_SALES
+27            CONCURRENT             = 4
+28            ASYNCINDEXLIMIT        = 4
+29            MAXTHREADS             = 4
+30            TEST_LEVEL             = 26
+31         ;
+32         
+33            METASVR
+34               HOST        = "enterprise"
+35               PORT        = 8561
+36               OLAP_SCHEMA = "SASApp - OLAP Schema";
+37         
+38            DIMENSION Products
+ 
+ODBC_2: Prepared: on connection 0
+SELECT * FROM public.DIM_CANDY_PRODUCTS
+ 
+39               CAPTION          = 'Product'
+40               SORT_ORDER       = ASCENDING
+41               DIMTBL           = defiant.DIM_CANDY_PRODUCTS
+42               DIMKEY           = product_key
+43               FACTKEY          = product_key
+44               HIERARCHIES      = ( FullProducts Products );
+45         
+3                                                          The SAS System                               08:36 Friday, March 15, 2013
+
+46               HIERARCHY FullProducts
+47                  ALL_MEMBER = 'All Products'
+48                  CAPTION    = 'Category > Subcategory > Product'
+49                  LEVELS     = ( Category Subcategory Product )
+50                  DEFAULT;
+51         
+52               HIERARCHY Products
+53                  ALL_MEMBER = 'All Products'
+54                  CAPTION    = 'Products'
+55                  LEVELS     = ( Product );
+56         
+57               LEVEL Category
+58                  CAPTION        =  'Category'
+59                  SORT_ORDER     =  ASCENDING;
+60         
+61               LEVEL Subcategory
+62                  CAPTION        =  'Subcategory'
+63                  SORT_ORDER     =  ASCENDING;
+64         
+65               LEVEL Product
+66                  CAPTION        =  'Product'
+67                  SORT_ORDER     =  ASCENDING;
+68         
+69            DIMENSION Time
+70               CAPTION          = 'Time'
+71               TYPE             = TIME
+72               SORT_ORDER       = ASCENDING
+73               HIERARCHIES      = ( YMD YQMD MonthYear );
+74         
+75               HIERARCHY YMD
+76                  ALL_MEMBER = 'All Years'
+77                  CAPTION    = 'Year > Month > Date'
+78                  LEVELS     = ( Year Month Date )
+79                  DEFAULT;
+80         
+81               HIERARCHY YQMD
+82                  ALL_MEMBER = 'All Years'
+83                  CAPTION    = 'Year > Qtr > Month > Date'
+84                  LEVELS     = ( Year Quarter Month Date );
+85         
+86               HIERARCHY MonthYear
+87                  ALL_MEMBER = 'All Years'
+88                  CAPTION    = 'Month Year'
+89                  LEVELS     = ( 'Month Year'n );
+90         
+91               LEVEL Year
+92                  COLUMN         =  order_date
+93                  FORMAT         =  YEAR4.
+94                  TYPE           =  YEAR
+95                  CAPTION        =  'Year'
+96                  SORT_ORDER     =  ASCENDING;
+97         
+98               LEVEL Month
+99                  COLUMN         =  order_date
+100                 FORMAT         =  MONNAME3.
+101                 TYPE           =  MONTHS
+102                 CAPTION        =  'Month'
+103                 SORT_ORDER     =  ASCENDING;
+4                                                          The SAS System                               08:36 Friday, March 15, 2013
+
+104        
+105              LEVEL Date
+106                 column         =  order_date
+107                 FORMAT         =  mmddyy10.
+108                 TYPE           =  DAYS
+109                 CAPTION        =  'Date'
+110                 SORT_ORDER     =  ASCENDING;
+111        
+112              LEVEL Quarter
+113                 COLUMN         =  order_date
+114                 FORMAT         =  QTR1.
+115                 TYPE           =  QUARTERS
+116                 CAPTION        =  'Quarter'
+117                 SORT_ORDER     =  ASCENDING;
+118        
+119              LEVEL 'Month Year'n
+120                 COLUMN         =  order_date
+121                 FORMAT         =  MONYY7.
+122                 TYPE           =  MONTHS
+123                 CAPTION        =  'Month Year'
+124                 SORT_ORDER     =  ASCENDING;
+125        
+126           DIMENSION Customer
+ 
+ODBC_3: Prepared: on connection 0
+SELECT * FROM public.DIM_CANDY_CUSTOMERS
+ 
+127              CAPTION          = 'Customer'
+128              SORT_ORDER       = ASCENDING
+129              DIMTBL           = defiant.DIM_CANDY_CUSTOMERS
+130              DIMKEY           = customer_key
+131              FACTKEY          = customer_key
+132              HIERARCHIES      = ( Customer CustomerTypes 'Org Structure'n  );
+133        
+134              HIERARCHY 'Org Structure'n
+135                 ALL_MEMBER = 'All Regional VPs'
+136                 CAPTION    = 'Region VP > AM > Customers'
+137                 LEVELS     = ( 'Region VP'n 'Account Manager'n Customers )
+138                 DEFAULT;
+139        
+140              HIERARCHY Customer
+141                 ALL_MEMBER = 'All Customers'
+142                 CAPTION    = 'Customer > Region VP > AM'
+143                 LEVELS     = ( Customers 'Region VP'n 'Account Manager'n );
+144        
+145              HIERARCHY CustomerTypes
+146                 ALL_MEMBER = 'All Customers'
+147                 CAPTION    = 'Type > Customer'
+148                 LEVELS     = ( Type Customers);
+149        
+150              LEVEL Customers
+151                 CAPTION        =  'Customer'
+152                 COLUMN         =  Customer
+153                 SORT_ORDER     =  ASCENDING;
+154        
+155              LEVEL Type
+156                 CAPTION        =  'Type'
+157                 SORT_ORDER     =  ASCENDING;
+5                                                          The SAS System                               08:36 Friday, March 15, 2013
+
+158        
+159              LEVEL 'Account Manager'n
+160                 CAPTION        =  'Account Manager'
+161                 COLUMN         =  Account_Manager
+162                 SORT_ORDER     =  ASCENDING;
+163        
+164              LEVEL 'Region VP'n
+165                 CAPTION        =  'Region VP'
+166                 COLUMN         =  RegionVP
+167                 SORT_ORDER     =  ASCENDING;
+168        
+169           DIMENSION Region
+ 
+ODBC_4: Prepared: on connection 0
+SELECT * FROM public.DIM_CANDY_CUSTOMERS
+ 
+170              CAPTION          = 'Region'
+171              SORT_ORDER       = ASCENDING
+172              DIMTBL           = defiant.DIM_CANDY_CUSTOMERS
+173              DIMKEY           = customer_key
+174              FACTKEY          = customer_key
+175              HIERARCHIES      = ( Region );
+176        
+177              HIERARCHY Region
+178                 ALL_MEMBER = 'All Regions'
+179                 CAPTION    = 'Region'
+180                 LEVELS     = ( Regions )
+181                 DEFAULT;
+182        
+183              LEVEL Regions
+184                 CAPTION        =  'Region'
+185                 COLUMN         =  Region
+186                 SORT_ORDER     =  ASCENDING;
+187        
+188           PROPERTY 'Gross Margin'n
+189              level=Product
+190              column=GrssMrgn
+191              hierarchy=(Products FullProducts)
+192              caption='Gross Margin'
+193              description='Gross Margin'
+194           ;
+195        
+196           PROPERTY 'Retail Price'n
+197              level=Product
+198              column=Retail_Price
+199              hierarchy=(Products FullProducts)
+200              caption='Retail Price'
+201              description='Retail Price'
+202           ;
+203        
+204           MEASURE 'Sales Amount'n
+205              STAT        = SUM
+206              COLUMN      = sale_amount
+207              CAPTION     = 'Sales Amount'
+208              FORMAT      = DOLLAR22.
+209              DEFAULT;
+210        
+211           MEASURE 'Avg Sales'n
+6                                                          The SAS System                               08:36 Friday, March 15, 2013
+
+212              STAT        = AVG
+213              COLUMN      = sale_amount
+214              CAPTION     = 'Average Sales'
+215              FORMAT      = DOLLAR22.2;
+216        
+217           MEASURE 'Units Sold'n
+218              STAT        = SUM
+219              COLUMN      = units
+220              CAPTION     = 'Units Sold'
+221              FORMAT      = comma18.;
+222        run;
+
+TSTLVL: Update enabled version of 9.2.
+IN PROGRESS: Initial connection with metadata server
+COMPLETED:   Initial connection with metadata server
+
+IN PROGRESS: Initialize cube build
+(TSTLVL TIMING)Begin time for cube building: 8H:38M:25S
+NOTE: Workpath: "/projects/saswork/SAS_workC07100003962_enterprise/SAS_workC30900003962_enterprise"
+WARNING: The OLAP Procedure does not support the NOFMTERR system option.
+NOTE: The property SAS_MEMBER_DATE was created for level "Year".
+NOTE: The property SAS_MEMBER_DATE was created for level "Month".
+NOTE: The property SAS_MEMBER_DATE was created for level "Date".
+NOTE: The property SAS_MEMBER_DATE was created for level "Quarter".
+NOTE: The property SAS_MEMBER_DATE was created for level "Month Year".
+NOTE: TEST_LEVEL (16) is set.
+MEMSIZE     = 26214400 KB
+REALMEMSIZE = 20971520 KB
+SUMSIZE     = 20971520 KB
+NOTE: MEMSIZE/REALMEMSIZE settings will determine memory usage for initial summarization.
+NOTE: MEMSIZE/REALMEMSIZE settings will determine memory usage for initial summarization.
+NOTE: MEMSIZE/REALMEMSIZE settings will determine memory usage for initial summarization.
+NOTE: MEMSIZE/REALMEMSIZE settings will determine memory usage for initial summarization.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+COMPLETED:   Initialize cube build
+
+IN PROGRESS: Initial summarization of input data
+ 
+ODBC_5: Prepared: on connection 0
+SELECT  "order_date", "product_key", "customer_key", "sale_amount", "units"  FROM public.FACT_CANDY_SALES 
+ 
+ 
+ODBC_6: Executed: on connection 0
+Prepared statement ODBC_5
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+COMPLETED:   Initial summarization of input data
+
+NOTE: Available memory for 'hierarchy' stage: 20949973 KB
+NOTE: The files to share memory are 6.
+NOTE: Setting memory to 2618746 kb where MEMSIZE and/or REALMEMSIZE set
+
+
+7                                                          The SAS System                               08:36 Friday, March 15, 2013
+
+NOTE: Memory used for star schema index processing determined by MEMSIZE/REALMEMSIZE and is 2618746 kb
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+IN PROGRESS: Summarizing "Products" dimension table
+ 
+ODBC_7: Prepared: on connection 0
+SELECT  "category", "subcategory", "product", "grssmrgn", "retail_price", "product_key"  FROM public.DIM_CANDY_PRODUCTS 
+ 
+ 
+ODBC_8: Executed: on connection 0
+Prepared statement ODBC_7
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+COMPLETED    Summarizing "Products" dimension table
+
+Time to summarize 'Products' dimension table and make room for it:
+(TSTLVL TIMING) Clocktime  : 0.0228 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0100 sec
+
+Begin time for getting captions for 'FullProducts' hierarchy: 
+(TSTLVL TIMING)Getting captions: 18H:14M:7S
+IN PROGRESS: Metadata creation for hierarchy "FullProducts"
+NOTE: Cardinality for levels in the "FullProducts" hierarchy (test_lvl=8):
+   Category: 2 
+   Subcategory: 6 
+   Product: 16 
+
+
+COMPLETED:   Metadata creation for hierarchy "FullProducts"
+
+Time to create member caption metadata for 'FullProducts' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0008 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+Begin time for getting captions for 'Products' hierarchy: 
+(TSTLVL TIMING)Getting captions: 18H:14M:7S
+IN PROGRESS: Metadata creation for hierarchy "Products"
+NOTE: Cardinality for levels in the "Products" hierarchy (test_lvl=8):
+   Product: 16 
+
+
+COMPLETED:   Metadata creation for hierarchy "Products"
+
+Time to create member caption metadata for 'Products' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0003 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 18H:14M:7S
+IN PROGRESS: Member metadata creation for 'FullProducts' hierarchy
+NOTE: The total number of members in hierarchy is 25.
+Member cardinality  per level in hierarchy:
+8                                                          The SAS System                               08:36 Friday, March 15, 2013
+
+Level 1: 2 
+Level 2: 6 
+Level 3: 16 
+COMPLETED: Member metadata creation for 'FullProducts' hierarchy
+Time to create member metadata for 'FullProducts' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0007 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 18H:14M:7S
+IN PROGRESS: Member metadata creation for 'Products' hierarchy
+NOTE: The total number of members in hierarchy is 17.
+Member cardinality  per level in hierarchy:
+Level 1: 16 
+COMPLETED: Member metadata creation for 'Products' hierarchy
+Time to create member metadata for 'Products' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0009 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+NOTE: The initial memory limit for classification tables was 20949359K bytes. Actual memory acquired was 128K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+Begin time for getting captions for 'YMD' hierarchy: 
+(TSTLVL TIMING)Getting captions: 18H:14M:7S
+IN PROGRESS: Metadata creation for hierarchy "YMD"
+NOTE: Cardinality for levels in the "YMD" hierarchy (test_lvl=8):
+   Year: 6 
+   Month: 12 
+   Date: 1851 
+
+
+COMPLETED:   Metadata creation for hierarchy "YMD"
+
+Time to create member caption metadata for 'YMD' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0076 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0100 sec
+
+Begin time for getting captions for 'YQMD' hierarchy: 
+(TSTLVL TIMING)Getting captions: 18H:14M:7S
+IN PROGRESS: Metadata creation for hierarchy "YQMD"
+NOTE: Cardinality for levels in the "YQMD" hierarchy (test_lvl=8):
+   Year: 6 
+   Quarter: 4 
+   Month: 12 
+   Date: 1851 
+
+
+COMPLETED:   Metadata creation for hierarchy "YQMD"
+
+Time to create member caption metadata for 'YQMD' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0005 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+Begin time for getting captions for 'MonthYear' hierarchy: 
+(TSTLVL TIMING)Getting captions: 18H:14M:7S
+IN PROGRESS: Metadata creation for hierarchy "MonthYear"
+9                                                          The SAS System                               08:36 Friday, March 15, 2013
+
+NOTE: Cardinality for levels in the "MonthYear" hierarchy (test_lvl=8):
+   Month Year: 61 
+
+
+COMPLETED:   Metadata creation for hierarchy "MonthYear"
+
+Time to create member caption metadata for 'MonthYear' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0007 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 18H:14M:7S
+IN PROGRESS: Member metadata creation for 'YMD' hierarchy
+NOTE: The total number of members in hierarchy is 1919.
+Member cardinality  per level in hierarchy:
+Level 1: 6 
+Level 2: 61 
+Level 3: 1851 
+COMPLETED: Member metadata creation for 'YMD' hierarchy
+Time to create member metadata for 'YMD' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0083 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 18H:14M:7S
+IN PROGRESS: Member metadata creation for 'YQMD' hierarchy
+NOTE: The total number of members in hierarchy is 1940.
+Member cardinality  per level in hierarchy:
+Level 1: 6 
+Level 2: 21 
+Level 3: 61 
+Level 4: 1851 
+COMPLETED: Member metadata creation for 'YQMD' hierarchy
+Time to create member metadata for 'YQMD' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0317 sec
+(TSTLVL TIMING) Systime    : 0.0200 sec
+(TSTLVL TIMING) CPUtime    : 0.0200 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 18H:14M:7S
+IN PROGRESS: Member metadata creation for 'MonthYear' hierarchy
+NOTE: The total number of members in hierarchy is 62.
+Member cardinality  per level in hierarchy:
+Level 1: 61 
+COMPLETED: Member metadata creation for 'MonthYear' hierarchy
+Time to create member metadata for 'MonthYear' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0010 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+IN PROGRESS: Summarizing "Customer" dimension table
+ 
+ODBC_9: Prepared: on connection 0
+SELECT  "customer", "regionvp", "account_manager", "type", "customer_key"  FROM public.DIM_CANDY_CUSTOMERS 
+ 
+ 
+ODBC_10: Executed: on connection 0
+10                                                         The SAS System                               08:36 Friday, March 15, 2013
+
+Prepared statement ODBC_9
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+COMPLETED    Summarizing "Customer" dimension table
+
+Time to summarize 'Customer' dimension table and make room for it:
+(TSTLVL TIMING) Clocktime  : 0.0192 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0200 sec
+
+Begin time for getting captions for 'Customer' hierarchy: 
+(TSTLVL TIMING)Getting captions: 18H:14M:7S
+IN PROGRESS: Metadata creation for hierarchy "Customer"
+NOTE: Cardinality for levels in the "Customer" hierarchy (test_lvl=8):
+   Customers: 8 
+   Region VP: 3 
+   Account Manager: 8 
+
+
+COMPLETED:   Metadata creation for hierarchy "Customer"
+
+Time to create member caption metadata for 'Customer' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0006 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+Begin time for getting captions for 'CustomerTypes' hierarchy: 
+(TSTLVL TIMING)Getting captions: 18H:14M:7S
+IN PROGRESS: Metadata creation for hierarchy "CustomerTypes"
+NOTE: Cardinality for levels in the "CustomerTypes" hierarchy (test_lvl=8):
+   Type: 3 
+   Customers: 8 
+
+
+COMPLETED:   Metadata creation for hierarchy "CustomerTypes"
+
+Time to create member caption metadata for 'CustomerTypes' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0004 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+Begin time for getting captions for 'Org Structure' hierarchy: 
+(TSTLVL TIMING)Getting captions: 18H:14M:7S
+IN PROGRESS: Metadata creation for hierarchy "Org Structure"
+NOTE: Cardinality for levels in the "Org Structure" hierarchy (test_lvl=8):
+   Region VP: 3 
+   Account Manager: 8 
+   Customers: 8 
+
+
+COMPLETED:   Metadata creation for hierarchy "Org Structure"
+
+Time to create member caption metadata for 'Org Structure' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0004 sec
+11                                                         The SAS System                               08:36 Friday, March 15, 2013
+
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 18H:14M:7S
+IN PROGRESS: Member metadata creation for 'Customer' hierarchy
+NOTE: The total number of members in hierarchy is 25.
+Member cardinality  per level in hierarchy:
+Level 1: 8 
+Level 2: 8 
+Level 3: 8 
+COMPLETED: Member metadata creation for 'Customer' hierarchy
+Time to create member metadata for 'Customer' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0005 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 18H:14M:7S
+IN PROGRESS: Member metadata creation for 'CustomerTypes' hierarchy
+NOTE: The total number of members in hierarchy is 12.
+Member cardinality  per level in hierarchy:
+Level 1: 3 
+Level 2: 8 
+COMPLETED: Member metadata creation for 'CustomerTypes' hierarchy
+Time to create member metadata for 'CustomerTypes' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0008 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 18H:14M:7S
+IN PROGRESS: Member metadata creation for 'Org Structure' hierarchy
+NOTE: The total number of members in hierarchy is 20.
+Member cardinality  per level in hierarchy:
+Level 1: 3 
+Level 2: 8 
+Level 3: 8 
+COMPLETED: Member metadata creation for 'Org Structure' hierarchy
+Time to create member metadata for 'Org Structure' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0009 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+NOTE: The initial memory limit for classification tables was 20945052K bytes. Actual memory acquired was 128K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 512K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+IN PROGRESS: Summarizing "Region" dimension table
+ 
+ODBC_11: Prepared: on connection 0
+SELECT  "region", "customer_key"  FROM public.DIM_CANDY_CUSTOMERS 
+ 
+ 
+ODBC_12: Executed: on connection 0
+Prepared statement ODBC_11
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+12                                                         The SAS System                               08:36 Friday, March 15, 2013
+
+NOTE: Subtypes are now complete.
+COMPLETED    Summarizing "Region" dimension table
+
+Time to summarize 'Region' dimension table and make room for it:
+(TSTLVL TIMING) Clocktime  : 0.0057 sec
+(TSTLVL TIMING) Systime    : 0.0100 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+Begin time for getting captions for 'Region' hierarchy: 
+(TSTLVL TIMING)Getting captions: 18H:14M:7S
+IN PROGRESS: Metadata creation for hierarchy "Region"
+NOTE: Cardinality for levels in the "Region" hierarchy (test_lvl=8):
+   Regions: 3 
+
+
+COMPLETED:   Metadata creation for hierarchy "Region"
+
+Time to create member caption metadata for 'Region' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0004 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 18H:14M:7S
+IN PROGRESS: Member metadata creation for 'Region' hierarchy
+NOTE: The total number of members in hierarchy is 4.
+Member cardinality  per level in hierarchy:
+Level 1: 3 
+COMPLETED: Member metadata creation for 'Region' hierarchy
+Time to create member metadata for 'Region' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0004 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+NOTE: The initial memory limit for classification tables was 20941820K bytes. Actual memory acquired was 128K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+WARNING: At least one leaf member of a hierarchy is referred to by multiple dimension keys.
+NOTE: Consider using the COMPACT_NWAY option.  Use of this option might result in a reduction in size of the final NWAY.
+IN PROGRESS: Mapping fact table to dimension tables
+(TSTLVL TIMING)Begin time for Mapping fact table to dimension tables: 18H:14M:7S
+NOTE: Number of unique dimension keys for table Products: 16. Number found in fact table: 16
+(TSTLVL TIMING)Begin time for mapping fact keys to above dimension 18H:14M:7S
+
+FACTMAP: Creating fact key map array for dim: Products
+FACTMAP: Number bytes: 408
+FACTMAP: Number 128M blocks to allocate: 1
+FACTMAP: Last block size: 408
+
+Time to map keys for 'Products' dimension to fact table
+(TSTLVL TIMING) Clocktime  : 0.0003 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+Time to map keys for 'Time' dimension to fact table
+(TSTLVL TIMING) Clocktime  : 0.0005 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+NOTE: Number of unique dimension keys for table Customer: 8. Number found in fact table: 8
+13                                                         The SAS System                               08:36 Friday, March 15, 2013
+
+(TSTLVL TIMING)Begin time for mapping fact keys to above dimension 18H:14M:7S
+
+FACTMAP: Creating fact key map array for dim: Customer
+FACTMAP: Number bytes: 288
+FACTMAP: Number 128M blocks to allocate: 1
+FACTMAP: Last block size: 288
+
+Time to map keys for 'Customer' dimension to fact table
+(TSTLVL TIMING) Clocktime  : 0.0003 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+NOTE: Number of unique dimension keys for table Region: 8. Number found in fact table: 8
+(TSTLVL TIMING)Begin time for mapping fact keys to above dimension 18H:14M:7S
+
+FACTMAP: Creating fact key map array for dim: Region
+FACTMAP: Number bytes: 72
+FACTMAP: Number 128M blocks to allocate: 1
+FACTMAP: Last block size: 72
+
+Time to map keys for 'Region' dimension to fact table
+(TSTLVL TIMING) Clocktime  : 0.0003 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+COMPLETED: Mapping fact table to dimension tables
+Total time to map fact table to dimension tables:
+(TSTLVL TIMING) Clocktime  : 0.0030 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+IN PROGRESS: NWAY creation
+NOTE: Available memory to create aggregations: 20419 MB.
+NOTE: Maximum threads available to create aggregation indices: 4.
+NOTE: Setting the limit on the number of indexes that may be created asynchronously to 4.
+IN PROGRESS: WRITE NWAY TO DISK
+(TSTLVL TIMING)Begin time for writing nway to disk: 18H:14M:7S
+NOTE: The initial memory limit for classification tables was 20961084K bytes. Actual memory acquired was 43136K bytes.
+NOTE: The utility file buffer size selected was 16K bytes.
+COMPLETED: WRITE NWAY TO DISK
+(TSTLVL TIMING)End time for writing nway to disk: 18H:14M:7S
+Time to write nway:
+(TSTLVL TIMING) Clocktime  : 0.3592 sec
+(TSTLVL TIMING) Systime    : 0.1000 sec
+(TSTLVL TIMING) CPUtime    : 0.3300 sec
+
+
+
+IN PROGRESS: NWAY index creation
+(TSTLVL TIMING)Begin time for creating index for nway: 18H:14M:7S
+COMPLETED:   NWAY index creation
+
+Time to create NWAY index: 
+(TSTLVL TIMING) Clocktime  : 2.7328 sec
+(TSTLVL TIMING) Systime    : 0.5000 sec
+(TSTLVL TIMING) CPUtime    : 2.7200 sec
+
+NOTE: Number of NWAY records: 236928
+14                                                         The SAS System                               08:36 Friday, March 15, 2013
+
+COMPLETED:   NWAY creation
+IN PROGRESS: Disking cube metadata files
+COMPLETED:   Disking cube metadata files
+
+IN PROGRESS: Cube registration with metadata server
+COMPLETED:   Cube registration with metadata server
+
+IN PROGRESS: Finalizing cube build
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                     34237.441689
+Total SQL execution seconds were:                   0.000010
+Total SQL prepare seconds were:                     0.000037
+Total SQL describe seconds were:                    0.101825
+Total seconds used by the ODBC ACCESS engine were   34545.498410
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.000852
+Total SQL execution seconds were:                   0.000007
+Total SQL prepare seconds were:                     0.000023
+Total SQL describe seconds were:                    0.014677
+Total seconds used by the ODBC ACCESS engine were   34545.441710
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.000429
+Total SQL execution seconds were:                   0.000004
+Total SQL prepare seconds were:                     0.000019
+Total SQL describe seconds were:                    0.011403
+Total seconds used by the ODBC ACCESS engine were   34545.433926
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.000428
+Total SQL execution seconds were:                   0.000004
+Total SQL prepare seconds were:                     0.000020
+Total SQL describe seconds were:                    0.001519
+Total seconds used by the ODBC ACCESS engine were   34545.429481
+ 
+COMPLETED:   Finalizing cube build
+
+Total time to build cube:
+(TSTLVL TIMING) Clocktime  : 34545.3633 sec
+(TSTLVL TIMING) Systime    : 1863.2200 sec
+(TSTLVL TIMING) CPUtime    : 50125.3300 sec
+
+(TSTLVL TIMING)Time cube build completed: 18H:14M:10S
+NOTE: Cube "Candy Sales Advanced" was created successfully.
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           9:35:45.50
+      user cpu time       13:55:25.41
+      system cpu time     31:03.26
+      memory              63834.43k
+      OS Memory           78948.00k
+      Timestamp           03/15/2013 06:14:10 PM
+      Page Faults                       1
+15                                                         The SAS System                               08:36 Friday, March 15, 2013
+
+      Page Reclaims                     65688
+      Page Swaps                        0
+      Voluntary Context Switches        1343595
+      Involuntary Context Switches      470878
+      Block Input Operations            152
+      Block Output Operations           231424
+      
+
+223        
+224        proc olap;
+225           METASVR
+226              HOST        = "enterprise"
+227              PORT        = 8561
+228              OLAP_SCHEMA = "SASApp - OLAP Schema";
+229        
+230           /* Rolling month sets */
+231           DEFINE SET "[Candy Sales Advanced].[Rolling 12 Months]" as "tail([Time].[YMD].[Month].members,12)";
+232           DEFINE SET "[Candy Sales Advanced].[Rolling 24 Months]" as "tail([Time].[YMD].[Month].members,24)";
+233           DEFINE SET "[Candy Sales Advanced].[Rolling 36 Months]" as "tail([Time].[YMD].[Month].members,36)";
+234           DEFINE SET "[Candy Sales Advanced].[Rolling 7 Days]" as "tail({[Time].[YMD].[Date].members},7)";
+235        
+236           /* Rolling time aggregate members */
+237           DEFINE MEMBER "[Candy Sales Advanced].[Time].[YMD].[All Years].[Rolling 12 Months]" as 'aggregate(
+237      ! tail([Time].[YMD].[Month].members ,12) )';
+238           DEFINE MEMBER "[Candy Sales Advanced].[Time].[YMD].[All Years].[Rolling 24 Months]" as 'aggregate(
+238      ! tail([Time].[YMD].[Month].members ,24) )';
+239           DEFINE MEMBER "[Candy Sales Advanced].[Time].[YMD].[All Years].[Rolling 36 Months]" as 'aggregate(
+239      ! tail([Time].[YMD].[Month].members ,36) )';
+240        
+241           /* Ratio */
+242           DEFINE MEMBER "[Candy Sales Advanced].[Measures].[Sales Price Per Unit]" AS
+243            '([Measures].[Sales Amount] / [Measures].[Units Sold]), format_string="dollar20.0"';
+244        
+245           /* Rolling Average */
+246           DEFINE MEMBER '[Candy Sales Advanced].[Measures].[Sales 3M Rolling]' AS
+247                'Avg(LastPeriods(3,[Time].[MonthYear].CurrentMember),[Measures].[Sales Amount])';
+248        
+249           /* Percent Change - Sales Growth */
+250           DEFINE MEMBER '[Candy Sales Advanced].[Measures].[Sales Growth]' AS
+251             '(([Time].[YMD].CurrentMember,[Measures].[Sales Amount])-([Time].[YMD].CurrentMember.PrevMember,[Measures].[Sales
+251      ! Amount]))/([Time].[YMD].CurrentMember.PrevMember,[Measures].[Sales Amount]), format_string="percent14.2"';
+252        
+253           /** Measures to compare account managers performance to their peer group (team)**/
+254           DEFINE MEMBER "[Candy Sales Advanced].[Measures].[Team AVG Sales]" AS
+255            '([Customer].[Org Structure].CurrentMember.Parent,[Measures].[Avg Sales]), SOLVE_ORDER=0, format_string="dollar20.0"'
+255      ! ;
+256        
+257           DEFINE MEMBER "[Candy Sales Advanced].[Measures].[Diff Team AVG Sales]" AS
+258            '([Measures].[Avg Sales] - [Measures].[Team AVG Sales]), SOLVE_ORDER=1, format_string="dollar20.0"';
+259        
+260           DEFINE MEMBER "[Candy Sales Advanced].[Measures].[%Diff Team AVG Sales]" AS
+WARNING: Apparent invocation of macro DIFF not resolved.
+261            '([Measures].[Diff Team AVG Sales] / [Measures].[Team AVG Sales]), SOLVE_ORDER=2, format_string="NLPCT10.2"';
+262        
+263        run;
+
+NOTE: Processing of all DEFINE and UNDEFINE statements is completed.
+NOTE: All DEFINE and UNDEFINE statements processed successfully.
+16                                                         The SAS System                               08:36 Friday, March 15, 2013
+
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           2.11 seconds
+      user cpu time       0.23 seconds
+      system cpu time     0.09 seconds
+      memory              2622.59k
+      OS Memory           17452.00k
+      Timestamp           03/15/2013 06:14:12 PM
+      Page Faults                       0
+      Page Reclaims                     1972
+      Page Swaps                        0
+      Voluntary Context Switches        728
+      Involuntary Context Switches      18
+      Block Input Operations            0
+      Block Output Operations           80
+      
+
+264        
+265        
+266        GOPTIONS NOACCESSIBLE;
+267        %LET _CLIENTTASKLABEL=;
+268        %LET _CLIENTPROJECTPATH=;
+269        %LET _CLIENTPROJECTNAME=;
+270        %LET _SASPROGRAMFILE=;
+271        
+272        ;*';*";*/;quit;run;
+273        ODS _ALL_ CLOSE;
+274        
+275        
+276        QUIT; RUN;
+277        

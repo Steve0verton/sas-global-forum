@@ -1,0 +1,111 @@
+1                                                          The SAS System                           09:37 Wednesday, August 21, 2013
+
+1          ;*';*";*/;quit;run;
+2          OPTIONS PAGENO=MIN;
+3          %LET _CLIENTTASKLABEL='BuildBIGSampleCandyDataBulkLoad';
+4          %LET _CLIENTPROJECTPATH='';
+5          %LET _CLIENTPROJECTNAME='';
+6          %LET _SASPROGRAMFILE='/projects/SGF2013/programs/BuildBIGSampleCandyDataBulkLoad.sas';
+7          
+8          ODS _ALL_ CLOSE;
+9          OPTIONS DEV=ACTIVEX;
+10         GOPTIONS XPIXELS=0 YPIXELS=0;
+11         FILENAME EGHTML TEMP;
+12         ODS HTML(ID=EGHTML) FILE=EGHTML
+13             ENCODING='utf-8'
+14             STYLE=HtmlBlue
+15             STYLESHEET=(URL="file:///D:/SAS94/SASEnterpriseGuide/6.1/Styles/HtmlBlue.css")
+16             ATTRIBUTES=("CODEBASE"="http://www2.sas.com/codebase/graph/v94/sasgraph.exe#version=9,4")
+17             NOGTITLE
+18             NOGFOOTNOTE
+19             GPATH=&sasworklocation
+20         ;
+NOTE: Writing HTML(EGHTML) Body file: EGHTML
+21         
+22         GOPTIONS ACCESSIBLE;
+23         
+24         /**** Generate ~1 billion records of data - do it in 2 runs ****/
+25         data stg_fact_candy_sales (bufsize=1M);
+26           length product_key order_date customer_key units sale_amount 8;
+27         
+28           /* Create random data */
+29           do order_date = '01JAN2005'd to '01JUN2010'd;
+30             do x = 1 to (round(rand("Uniform")*10000)+540000);
+31               product_key = round(rand("Uniform")*15) + 1;
+32               customer_key = round(rand("Uniform")*7) + 1;
+33               units = round(rand("Uniform")*100);
+34               sale_amount = round(rand("Uniform")*1000);
+35               output;
+36             end;
+37           end;
+38           drop x;
+39         run;
+
+NOTE: The data set WORK.STG_FACT_CANDY_SALES has 1078282107 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           14:29.99
+      cpu time            14:20.04
+      
+
+40         
+41         /* Add PK */
+42         data stg_fact_candy_sales (bufsize=1M);
+43           order_key = _N_;
+44           set stg_fact_candy_sales;
+45         run;
+
+NOTE: There were 1078282107 observations read from the data set WORK.STG_FACT_CANDY_SALES.
+NOTE: The data set WORK.STG_FACT_CANDY_SALES has 1078282107 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           14:28.03
+2                                                          The SAS System                           09:37 Wednesday, August 21, 2013
+
+      cpu time            9:15.55
+      
+
+46         
+47         %errorcheck;
+Current SYSCC = 0
+48         /* Insert into fact table */
+49         proc append base=defiant.fact_candy_sales
+50           ( bulkload=yes
+51             bl_datafile="/tmp/data"
+52             bl_logfile="/tmp/bulkload_log"
+53             BL_LOAD_METHOD=APPEND
+54           )
+55           data=stg_fact_candy_sales;
+56         run;
+
+NOTE: Appending WORK.STG_FACT_CANDY_SALES to DEFIANT.fact_candy_sales.
+NOTE: There were 1078282107 observations read from the data set WORK.STG_FACT_CANDY_SALES.
+NOTE: 1078282107 observations added.
+NOTE: The data set DEFIANT.fact_candy_sales has . observations and 6 variables.
+
+************** Begin:  PSQL Log File **************
+
+************** End:    PSQL Log File **************
+
+NOTE: 
+**********************************************************************
+ Please look in the PSQL log file for the load results.
+ PSQL Log File location(available only if BL_DELETE_DATAFILE=NO was set) : -- /tmp/bulkload_log --
+ Note: In a Client/Server environment, the Log File is located on the Server. The log file is also echoed in the Server SAS log 
+      file. 
+NOTE: PROCEDURE APPEND used (Total process time):
+      real time           2:41:57.80
+      cpu time            29:54.90
+      
+
+57         
+58         GOPTIONS NOACCESSIBLE;
+59         %LET _CLIENTTASKLABEL=;
+60         %LET _CLIENTPROJECTPATH=;
+61         %LET _CLIENTPROJECTNAME=;
+62         %LET _SASPROGRAMFILE=;
+63         
+64         ;*';*";*/;quit;run;
+65         ODS _ALL_ CLOSE;
+66         
+67         
+68         QUIT; RUN;
+69         

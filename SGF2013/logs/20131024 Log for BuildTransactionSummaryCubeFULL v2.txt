@@ -1,0 +1,506 @@
+1                                                          The SAS System                           18:44 Thursday, October 24, 2013
+
+1          ;*';*";*/;quit;run;
+2          OPTIONS PAGENO=MIN;
+3          %LET _CLIENTTASKLABEL='BuildTransactionSummaryCubeFULL v2';
+4          %LET _CLIENTPROJECTPATH='';
+5          %LET _CLIENTPROJECTNAME='';
+6          %LET _SASPROGRAMFILE='/projects/SGF2013/programs/BuildTransactionSummaryCubeFULL v2.sas';
+7          
+8          ODS _ALL_ CLOSE;
+9          OPTIONS DEV=ACTIVEX;
+10         GOPTIONS XPIXELS=0 YPIXELS=0;
+11         FILENAME EGHTML TEMP;
+12         ODS HTML(ID=EGHTML) FILE=EGHTML
+13             ENCODING='utf-8'
+14             STYLE=HtmlBlue
+15             STYLESHEET=(URL="file:///D:/SAS94/SASEnterpriseGuide/6.1/Styles/HtmlBlue.css")
+16             ATTRIBUTES=("CODEBASE"="http://www2.sas.com/codebase/graph/v94/sasgraph.exe#version=9,4")
+17             NOGTITLE
+18             NOGFOOTNOTE
+19             GPATH=&sasworklocation
+20         ;
+NOTE: Writing HTML(EGHTML) Body file: EGHTML
+21         
+22         GOPTIONS ACCESSIBLE;
+23         /*------------------------------------------------------------------------------------------
+24           PROGRAMMER   : Stephen Overton (SAS Institute Partner) (soverton@overtontechnologies.com)
+25           PURPOSE      : Build Transaction Analysis OLAP cube. Cube summarizes transactions over
+26                          time by transaction date, party, account, type. Include custom analytical
+27                          measures, members, and sets using MDX.
+28         
+29         Support Notes:
+30         - http://support.sas.com/kb/19/363.html
+31         - http://support.sas.com/kb/38/978.html
+32         - http://support.sas.com/documentation/cdl/en/biasag/61237/HTML/default/viewer.htm#a003145996.htm
+33         - http://ftp.sas.com/techsup/download/hotfix/HF2/J46.html#48152
+34         
+35         |------------------------------------------------------------------------------------------|
+36         |  MAINTENANCE HISTORY                                                                     |
+37         |------------------------------------------------------------------------------------------|
+38         |  DATE    |     BY    | DESCRIPTION OF CHANGE                                             |
+39         |----------|-----------|-------------------------------------------------------------------|
+40         | 3/18/13  |  SteveO   | Initial release
+41         |-----------------------------------------------------------------------------------------*/
+42         LIBNAME defiant ODBC READBUFF=1000 DATASRC=defiant SCHEMA=public;
+NOTE: Libref DEFIANT was successfully assigned as follows: 
+      Engine:        ODBC 
+      Physical Name: defiant
+43         
+44         %let cube = /Projects/SGF2013/Cubes/Transaction Summary;
+45         %let syscc=0;
+46         
+47         %put ****** START cube build process ******;
+****** START cube build process ******
+48         proc olap
+49            CUBE                   = "&cube"
+50            DELETE;
+51         
+52            METASVR
+53               HOST        = "enterprise"
+2                                                          The SAS System                           18:44 Thursday, October 24, 2013
+
+54               PORT        = 8561
+55               OLAP_SCHEMA = "SASApp - OLAP Schema";
+56         
+57         run;
+
+WARNING: The registration for cube "Transaction Summary" was not found on the metadata server.
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           0.08 seconds
+      cpu time            0.03 seconds
+      
+
+58         
+59         options fullstimer fmterr;
+60         options SASTRACE=',,,ds' sastraceloc=saslog nostsuffix;
+61         %let syssumtrace=3;
+62         
+63         proc options group=performance; run;
+
+    SAS (r) Proprietary Software Release 9.4  TS1M0
+
+
+Group=PERFORMANCE
+ ARMAGENT=         Specifies an ARM agent (which is an executable module or keyword, such as LOG4SAS) that contains a specific 
+                   implementation of the ARM API.
+ ARMLOC=ARMLOG.LOG Specifies the location of the ARM log.
+ ARMSUBSYS=(ARM_NONE)
+                   Specifies the SAS ARM subsystems to enable or disable.
+ BUFNO=1           Specifies the number of buffers for processing SAS data sets.
+ BUFSIZE=65536     Specifies the size of a buffer page for output SAS data sets.
+ CGOPTIMIZE=3      Specifies the level of optimization to perform during code compilation.
+ CMPMODEL=BOTH     Specifies the output model type for the MODEL procedure.
+ CMPOPT=(NOEXTRAMATH NOMISSCHECK NOPRECISE NOGUARDCHECK NOGENSYMNAMES NOFUNCDIFFERENCING)
+                   Specifies the type of code-generation optimizations to use in the SAS language compiler.
+ COMPRESS=NO       Specifies the type of compression to use for observations in output SAS data sets.
+ CPUCOUNT=8        Specifies the number of processors that thread-enabled applications should assume are available for concurrent 
+                   processing.
+ NODBIDIRECTEXEC   The SQL pass-through facility does not optimize the handling of SQL statements.
+ DBSLICEPARM=(THREADED_APPS, 2)
+                   Specifies whether SAS procedures, applications, and the DATA step can read DBMS tables in parallel, and the 
+                   number of threads to use to read the DBMS tables.
+ MAXSEGRATIO=75    Specifies the upper limit for the percentage of index segments that the SPD Engine identifies as containing the 
+                   value referenced in the WHERE expression.
+ MEXECSIZE=65536   Specifies the maximum macro size that can be executed in memory.
+ MINPARTSIZE=16777216
+                   Specifies the minimum size of the data component partitions for SPD Engine data sets.
+ SORTSIZE=17179869184
+                   Specifies the amount of memory that is available to the SORT procedure.
+ NOSPDEFILECACHE   Disables caching of opened SPD Engine files.
+ SPDEINDEXSORTSIZE=33554432
+                   Specifies the memory size for sorting index values.
+ SPDEMAXTHREADS=2  Specifies the maximum number of threads that the SPD Engine can spawn for I/O processing.
+ SPDESORTSIZE=33554432
+                   Specifies the memory size that is used for sorting by the SPD Engine.
+ SPDEUTILLOC=      Specifies one or more locations where the SPD Engine can temporarily store utility files.
+ SPDEWHEVAL=COST   Specifies the WHERE statement evaluation process for the SPD Engine.
+ SQLGENERATION=(NONE DBMS='TERADATA DB2 ORACLE NETEZZA ASTER GREENPLM HADOOP')
+                   Specifies whether and when SAS procedures generate SQL for in-database processing of source data.
+ SQLREDUCEPUT=DBMS For PROC SQL, specifies the engine type to use to optimize a PUT function in a query.
+3                                                          The SAS System                           18:44 Thursday, October 24, 2013
+
+ SQLREDUCEPUTOBS=0 For PROC SQL, specifies the minimum number of observations that must be in a table for PROC SQL to optimize the 
+                   PUT function in a query.
+ SQLREDUCEPUTVALUES=0
+                   For PROC SQL, specifies the maximum number of SAS format values that can exist in a PUT function expression to 
+                   optimize the PUT function in a query.
+ STRIPESIZE=       Specifies path and size pairs to identify I/O device stripe size.  Stripe size indicates page size when creating 
+                   a data set or utility file.
+ THREADS           Uses threaded processing for SAS applications that support it.
+ UTILLOC=WORK      Specifies one or more file system locations in which threaded applications can store utility files.
+ WORK=/tmp/SAS_workA55200001777_enterprise/SAS_work0D1B00001777_enterprise
+                   Specifies the libref or location of the Work library.
+ ALIGNSASIOFILES   Aligns SAS files on a page boundary for improved performance.
+ MEMSIZE=21474836480
+                   Specifies the limit on the amount of virtual memory that can be used during a SAS session.
+NOTE: PROCEDURE OPTIONS used (Total process time):
+      real time           0.03 seconds
+      user cpu time       0.01 seconds
+      system cpu time     0.01 seconds
+      memory              44.84k
+      OS Memory           13720.00k
+      Timestamp           10/24/2013 06:45:16 PM
+      Step Count                        4  Switch Count  130
+      Page Faults                       0
+      Page Reclaims                     11
+      Page Swaps                        0
+      Voluntary Context Switches        470
+      Involuntary Context Switches      4
+      Block Input Operations            744
+      Block Output Operations           16
+      
+
+64         
+65         %errorcheck;
+Current SYSCC = 0
+66         proc olap
+67            CUBE                   = "&cube"
+ODBC: AUTOCOMMIT turned ON for connection id 0
+ 
+ODBC_1: Prepared: on connection 0
+SELECT * FROM public.FACT_TRANSACTIONS
+ 
+68            PATH                   = '/projects/SGF2013/cubes'
+69            DESCRIPTION            = 'Transaction Summary demo cube for SGF2013'
+70            FACT                   = defiant.fact_transactions
+71            CONCURRENT             = 4
+72            ASYNCINDEXLIMIT        = 2
+73            MAXTHREADS             = 2
+74            EMPTY_CHAR             = '!UNKNOWN'
+75            TEST_LEVEL             = 26
+76         ;
+77         
+78            METASVR
+79               HOST        = "enterprise"
+80               PORT        = 8561
+81               OLAP_SCHEMA = "SASApp - OLAP Schema";
+82         
+83             DIMENSION 'Transaction Date'n
+84               CAPTION          = 'Transaction Date'
+4                                                          The SAS System                           18:44 Thursday, October 24, 2013
+
+85               TYPE             = TIME
+86               SORT_ORDER       = ASCENDING
+87               HIERARCHIES      = ( 'Month Year'n 'Year > Month'n  );
+88         
+89               HIERARCHY 'Month Year'n
+90                  ALL_MEMBER = 'All Years'
+91                  CAPTION    = 'Month-Year'
+92                  LEVELS     = ( MonthYear )
+93                  DEFAULT;
+94         
+95               HIERARCHY 'Year > Month'n
+96                  ALL_MEMBER = 'All Years'
+97                  CAPTION    = 'Year > Month'
+98                  LEVELS     = ( Year Month );
+99         
+100              LEVEL Year
+101                 COLUMN         =  transaction_date
+102                 FORMAT         =  YEAR4.
+103                 TYPE           =  YEAR
+104                 CAPTION        =  'Year'
+105                 SORT_ORDER     =  ASCENDING;
+106        
+107              LEVEL Month
+108                 COLUMN         =  transaction_date
+109                 FORMAT         =  MONNAME3.
+110                 TYPE           =  MONTHS
+111                 CAPTION        =  'Month'
+112                 SORT_ORDER     =  ASCENDING;
+113        
+114              LEVEL MonthYear
+115                 COLUMN         =  transaction_date
+116                 FORMAT         =  MONYY7.
+117                 TYPE           =  MONTHS
+118                 CAPTION        =  'Month Year'
+119                 SORT_ORDER     =  ASCENDING;
+120        
+121           DIMENSION 'Transaction Type'n
+ 
+ODBC_2: Prepared: on connection 0
+SELECT * FROM public.DIM_TRANSACTION_TYPE
+ 
+122              CAPTION          = 'Transaction Type'
+123              SORT_ORDER       = ASCENDING
+124              DIMTBL           = defiant.dim_transaction_type
+125              DIMKEY           = transaction_type_key
+126              FACTKEY          = transaction_type_key
+127              HIERARCHIES      = ( 'Transaction Type'n );
+128        
+129              HIERARCHY  'Transaction Type'n
+130                 ALL_MEMBER = 'All Transaction Types'
+131                 CAPTION    = 'Type > Category'
+132                 LEVELS     = ( TransactionType TransactionCategory )
+133                 DEFAULT;
+134        
+135              LEVEL TransactionType
+136                 COLUMN         = transaction_type
+137                 CAPTION        =  'Type'
+138                 SORT_ORDER     =  ASCENDING;
+5                                                          The SAS System                           18:44 Thursday, October 24, 2013
+
+139        
+140              LEVEL TransactionCategory
+141                 COLUMN         = transaction_category
+142                 CAPTION        =  'Category'
+143                 SORT_ORDER     =  ASCENDING;
+144        
+145           DIMENSION Location
+ 
+ODBC_3: Prepared: on connection 0
+SELECT * FROM public.DIM_LOCATION
+ 
+146              CAPTION          = 'Location'
+147              SORT_ORDER       = ASCENDING
+148              DIMTBL           = defiant.dim_location
+149              DIMKEY           = location_key
+150              FACTKEY          = location_key
+151              HIERARCHIES      = ( Location );
+152        
+153              HIERARCHY Location
+154                 ALL_MEMBER = 'All States'
+155                 CAPTION    = 'State > County > City'
+156                 LEVELS     = ( State County City )
+157                 DEFAULT;
+158        
+159              LEVEL State
+160                 CAPTION        =  'State'
+161                 SORT_ORDER     =  ASCENDING;
+162        
+163              LEVEL County
+164                 CAPTION        =  'County'
+165                 SORT_ORDER     =  ASCENDING;
+166        
+167              LEVEL City
+168                 CAPTION        =  'City'
+169                 SORT_ORDER     =  ASCENDING;
+170        
+171           DIMENSION 'Party Account'n
+ 
+ODBC_4: Prepared: on connection 0
+SELECT * FROM public.DIM_PARTY_ACCOUNT
+ 
+172              CAPTION          = 'Party Account'
+173              SORT_ORDER       = ASCENDING
+174              DIMTBL           = defiant.dim_party_account
+175              DIMKEY           = party_account_key
+176              FACTKEY          = party_account_key
+177              HIERARCHIES      = ( 'Party Type > Party > Account'n
+178                                   'NAICS Code > Party > Account'n
+179                                   'Party > Account'n
+180                                   'Party Number'n
+181                                   'Type > NAICS > Party > Account'n
+182                                    'Account Number'n );
+183        
+184              HIERARCHY  'Party Type > Party > Account'n
+185                 ALL_MEMBER = 'All Party Types'
+186                 CAPTION    = 'Party Type > Party Number > Account Number'
+187                 LEVELS     = ( PartyType PartyNumber AccountNumber )
+188                 DEFAULT;
+6                                                          The SAS System                           18:44 Thursday, October 24, 2013
+
+189        
+190              HIERARCHY  'NAICS Code > Party > Account'n
+191                 ALL_MEMBER = 'All NAICS Codes'
+192                 CAPTION    = 'NAICS Code > Party Number > Account Number'
+193                 LEVELS     = ( NAICS PartyNumber AccountNumber );
+194        
+195              HIERARCHY  'Party > Account'n
+196                 ALL_MEMBER = 'All Party Numbers'
+197                 CAPTION    = 'Party Number > Account Number'
+198                 LEVELS     = ( PartyNumber AccountNumber );
+199        
+200              HIERARCHY  'Party Number'n
+201                 ALL_MEMBER = 'All Party Numbers'
+202                 CAPTION    = 'Party Number'
+203                 LEVELS     = ( PartyNumber );
+204        
+205              HIERARCHY  'Type > NAICS > Party > Account'n
+206                 ALL_MEMBER = 'All Party Types'
+207                 CAPTION    = 'Party Type > NAICS Code > Party Number > Account Number'
+208                 LEVELS     = ( PartyType NAICS PartyNumber AccountNumber );
+209        
+210              HIERARCHY  'Account Number'n
+211                 ALL_MEMBER = 'All Account Numbers'
+212                 CAPTION    = 'Account Number'
+213                 LEVELS     = ( AccountNumber );
+214        
+215              LEVEL PartyNumber
+216                 COLUMN         = party_number
+217                 CAPTION        =  'Party Number'
+218                 SORT_ORDER     =  ASCENDING
+219                 EMPTY          = '!UNKNOWN';
+220        
+221              LEVEL AccountNumber
+222                 COLUMN         = account_number
+223                 CAPTION        =  'Account Number'
+224                 SORT_ORDER     =  ASCENDING
+225                 EMPTY          = '!UNKNOWN';
+226        
+227              LEVEL PartyType
+228                 COLUMN         = party_type
+229                 CAPTION        =  'Party Type'
+230                 SORT_ORDER     =  ASCENDING
+231                 EMPTY          = '!UNKNOWN';
+232        
+233              LEVEL NAICS
+234                 COLUMN         = naics_code
+235                 CAPTION        =  'NAICS Code'
+236                 SORT_ORDER     =  ASCENDING
+237                 EMPTY          = '!INDIVIDUAL';
+238        
+239           PROPERTY 'Party Name'n
+240              level=PartyNumber
+241              column=party_name
+242              hierarchy=('Party Type > Party > Account'n
+243                         'NAICS Code > Party > Account'n
+244                         'Party > Account'n
+245                         'Party Number'n
+246                         'Type > NAICS > Party > Account'n )
+7                                                          The SAS System                           18:44 Thursday, October 24, 2013
+
+247              caption='Party Name'
+248              description='Party Name'
+249           ;
+250        
+251           PROPERTY PartyType
+252              level=PartyNumber
+253              column=party_type
+254              hierarchy=('NAICS Code > Party > Account'n
+255                         'Party > Account'n
+256                         'Party Number'n )
+257              caption='Party Type'
+258              description='Party Type'
+259           ;
+260        
+261           PROPERTY 'Account Name'n
+262              level=AccountNumber
+263              column=account_name
+264              hierarchy=('Party Type > Party > Account'n
+265                         'NAICS Code > Party > Account'n
+266                         'Party > Account'n
+267                         'Type > NAICS > Party > Account'n 'Account Number'n )
+268              caption='Account Name'
+269              description='Account Name'
+270           ;
+271        
+272           PROPERTY 'Account Open Date'n
+273              level=AccountNumber
+274              column=account_open_date
+275              hierarchy=('Party Type > Party > Account'n
+276                         'NAICS Code > Party > Account'n
+277                         'Party > Account'n
+278                         'Type > NAICS > Party > Account'n 'Account Number'n)
+279              caption='Account Open Date'
+280              description='Account Open Date'
+281           ;
+282        
+283           MEASURE 'Transaction Amount'n
+284              STAT        = SUM
+285              COLUMN      = transaction_amount
+286              CAPTION     = 'Transaction Amount'
+287              FORMAT      = DOLLAR24.0
+288              DEFAULT;
+289        
+290           MEASURE 'AVG Transaction Amount'n
+291              STAT        = AVG
+292              COLUMN      = transaction_amount
+293              CAPTION     = 'AVG Transaction Amount'
+294              FORMAT      = DOLLAR22.2;
+295        
+296           MEASURE 'Transaction Count'n
+297              STAT        = N
+298              COLUMN      = transaction_key
+299              CAPTION     = 'Transaction Count'
+300              FORMAT      = comma22.;
+301        
+302        run;
+
+TSTLVL: Update enabled version of 9.2.
+8                                                          The SAS System                           18:44 Thursday, October 24, 2013
+
+IN PROGRESS: Initial connection with metadata server
+COMPLETED:   Initial connection with metadata server
+
+IN PROGRESS: Initialize cube build
+(TSTLVL TIMING)Begin time for cube building: 18H:45M:18S
+NOTE: Workpath: "/tmp/SAS_workA55200001777_enterprise/SAS_work0D1B00001777_enterprise"
+NOTE: The property SAS_MEMBER_DATE was created for level "MonthYear".
+NOTE: The property SAS_MEMBER_DATE was created for level "Year".
+NOTE: The property SAS_MEMBER_DATE was created for level "Month".
+NOTE: TEST_LEVEL (16) is set.
+MEMSIZE     = 20971520 KB
+REALMEMSIZE = 20971520 KB
+SUMSIZE     = 16777216 KB
+NOTE: MEMSIZE/REALMEMSIZE settings will determine memory usage for initial summarization.
+NOTE: MEMSIZE/REALMEMSIZE settings will determine memory usage for initial summarization.
+NOTE: MEMSIZE/REALMEMSIZE settings will determine memory usage for initial summarization.
+NOTE: MEMSIZE/REALMEMSIZE settings will determine memory usage for initial summarization.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+COMPLETED:   Initialize cube build
+
+IN PROGRESS: Initial summarization of input data
+ 
+ODBC_5: Prepared: on connection 0
+SELECT  "transaction_date", "transaction_type_key", "location_key", "party_account_key", "transaction_amount", "transaction_key"  
+FROM public.FACT_TRANSACTIONS 
+ 
+ 
+ODBC_6: Executed: on connection 0
+Prepared statement ODBC_5
+ 
+ERROR: A critical memory shortage occurred while extending a crossing table.
+ERROR: The SAS System stopped processing this step because of insufficient memory.
+NOTE: There were 68239618 observations read from the data set DEFIANT.FACT_TRANSACTIONS.
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                     3505.391199
+Total SQL execution seconds were:                   0.000010
+Total SQL prepare seconds were:                     0.000109
+Total SQL describe seconds were:                    0.031861
+Total seconds used by the ODBC ACCESS engine were   3535.465207
+ 
+ 
+Summary Statistics for ODBC are:
+Total SQL prepare seconds were:                     0.000010
+Total SQL describe seconds were:                    0.004649
+Total seconds used by the ODBC ACCESS engine were   3535.407924
+ 
+ 
+Summary Statistics for ODBC are:
+Total SQL prepare seconds were:                     0.000007
+Total SQL describe seconds were:                    0.024497
+Total seconds used by the ODBC ACCESS engine were   3535.390347
+ 
+ 
+Summary Statistics for ODBC are:
+9                                                          The SAS System                           18:44 Thursday, October 24, 2013
+
+Total SQL prepare seconds were:                     0.000009
+Total SQL describe seconds were:                    0.018830
+Total seconds used by the ODBC ACCESS engine were   3535.352683
+ 
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           58:55.47
+      user cpu time       1:17:17.17
+      system cpu time     1:26.84
+      memory              8056910.14k
+      OS Memory           8089468.00k
+      Timestamp           10/24/2013 07:44:12 PM
+      Step Count                        5  Switch Count  1260
+      Page Faults                       7
+      Page Reclaims                     2015763
+      Page Swaps                        0
+      Voluntary Context Switches        392977
+      Involuntary Context Switches      159028
+      Block Input Operations            1680
+      Block Output Operations           104
+      
+303        
+304        %errorcheck;
+Current SYSCC = 1016
+*********** ERRORS/WARNINGS DETECTED: ABORTING **********
+ERROR: Execution canceled by an %ABORT CANCEL statement.
+NOTE: The SAS System stopped processing due to receiving a CANCEL request.

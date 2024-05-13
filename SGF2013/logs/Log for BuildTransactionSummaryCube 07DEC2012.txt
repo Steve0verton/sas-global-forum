@@ -1,0 +1,523 @@
+1                                                          The SAS System                          21:36 Wednesday, December 5, 2012
+
+1          ;*';*";*/;quit;run;
+2          OPTIONS PAGENO=MIN;
+3          %LET _CLIENTTASKLABEL='BuildTransactionSummaryCube';
+4          %LET _CLIENTPROJECTPATH='';
+5          %LET _CLIENTPROJECTNAME='';
+6          %LET _SASPROGRAMFILE='/data/projects/SGF2013/programs/BigData/BuildTransactionSummaryCube.sas';
+7          
+8          ODS _ALL_ CLOSE;
+9          OPTIONS DEV=ACTIVEX;
+10         GOPTIONS XPIXELS=0 YPIXELS=0;
+11         FILENAME EGHTML TEMP;
+12         ODS HTML(ID=EGHTML) FILE=EGHTML ENCODING='utf-8' STYLE=HtmlBlue
+12       ! STYLESHEET=(URL="file:///C:/SAS/SASEnterpriseGuide/5.1/Styles/HtmlBlue.css")
+12       ! ATTRIBUTES=("CODEBASE"="http://www2.sas.com/codebase/graph/v93/sasgraph.exe#version=9,3") NOGTITLE NOGFOOTNOTE
+12       ! GPATH=&sasworklocation;
+NOTE: Writing HTML(EGHTML) Body file: EGHTML
+13         
+14         GOPTIONS ACCESSIBLE;
+ODBC: COMMIT performed on connection 0.
+ODBC: AUTOCOMMIT is NO for connection 0
+15         LIBNAME postgres ODBC  READBUFF=30000 DATASRC=dev  SCHEMA=public;
+NOTE: Libref POSTGRES was successfully assigned as follows: 
+      Engine:        ODBC 
+      Physical Name: dev
+16         
+17         PROC OLAP
+18            CUBE                   = "/Projects/SGF2013/Cubes/Transaction Summary"
+19            DELETE;
+20         
+21            METASVR
+22               HOST        = "vSAS"
+23               PORT        = 8561
+24               OLAP_SCHEMA = "SASApp - OLAP Schema";
+25         
+26         RUN;
+
+WARNING: The registration for cube "Transaction Summary" was not found on the metadata server.
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           0.01 seconds
+      user cpu time       0.00 seconds
+      system cpu time     0.01 seconds
+      memory              105.21k
+      OS Memory           14116.00k
+      Timestamp           12/07/2012 10:00:52 AM
+      Page Faults                       0
+      Page Reclaims                     17
+      Page Swaps                        0
+      Voluntary Context Switches        132
+      Involuntary Context Switches      0
+      Block Input Operations            0
+      Block Output Operations           0
+      
+
+27         
+28         options fullstimer;
+29         options SASTRACE=',,,ds' sastraceloc=saslog nostsuffix;
+30         %let syssumtrace=3;
+31         
+2                                                          The SAS System                          21:36 Wednesday, December 5, 2012
+
+32         PROC OLAP
+33            CUBE                   = "/Projects/SGF2013/Cubes/Transaction Summary"
+ODBC: AUTOCOMMIT turned ON for connection id 0
+ 
+ODBC_1: Prepared: on connection 0
+SELECT * FROM public.FACT_TRANSACTIONS
+ 
+34            PATH                   = '/data/projects/SGF2013/cubes'
+35            DESCRIPTION            = 'Transaction Summary demo cube for SGF2013'
+36            FACT                   = postgres.FACT_TRANSACTIONS
+37            CONCURRENT             = 4
+38            MAXTHREADS             = 4
+39         	 INDEXSORTSIZE					=	2000
+40         	 TEST_LEVEL							= 26
+41         ;
+42         
+43            METASVR
+44               HOST        = "vSAS"
+45               PORT        = 8561
+46               OLAP_SCHEMA = "SASApp - OLAP Schema";
+47         
+48            DIMENSION Location
+ 
+ODBC_2: Prepared: on connection 0
+SELECT * FROM public.DIM_LOCATION
+ 
+49               CAPTION          = 'Location'
+50               SORT_ORDER       = ASCENDING
+51               DIMTBL           = postgres.DIM_LOCATION
+52               DIMKEY           = location_key
+53               FACTKEY          = location_key
+54               HIERARCHIES      = ( Location );
+55         
+56               HIERARCHY Location
+57                  ALL_MEMBER = 'All States'
+58                  CAPTION    = 'State > County > City'
+59                  LEVELS     = ( State County City )
+60                  DEFAULT;
+61         
+62               LEVEL State
+63                  CAPTION        =  'State'
+64                  SORT_ORDER     =  ASCENDING;
+65         
+66               LEVEL County
+67                  CAPTION        =  'County'
+68                  SORT_ORDER     =  ASCENDING;
+69         
+70               LEVEL City
+71                  CAPTION        =  'City'
+72                  SORT_ORDER     =  ASCENDING;
+73         
+74            DIMENSION Time
+75               CAPTION          = 'Time'
+76               TYPE             = TIME
+77               SORT_ORDER       = ASCENDING
+78               HIERARCHIES      = ( YMD YQMD MonthYear );
+79         
+80               HIERARCHY YMD
+3                                                          The SAS System                          21:36 Wednesday, December 5, 2012
+
+81                  ALL_MEMBER = 'All Years'
+82                  CAPTION    = 'Year > Month > Date'
+83                  LEVELS     = ( Year Month Date )
+84                  DEFAULT;
+85         
+86               HIERARCHY YQMD
+87                  ALL_MEMBER = 'All Years'
+88                  CAPTION    = 'Year > Qtr > Month > Date'
+89                  LEVELS     = ( Year Quarter Month Date );
+90         
+91               HIERARCHY MonthYear
+92                  ALL_MEMBER = 'All Years'
+93                  CAPTION    = 'Month Year'
+94                  LEVELS     = ( 'Month Year'n );
+95         
+96               LEVEL Year
+97                  COLUMN         =  transaction_date
+98                  FORMAT         =  YEAR4.
+99                  TYPE           =  YEAR
+100                 CAPTION        =  'Year'
+101                 SORT_ORDER     =  ASCENDING;
+102        
+103              LEVEL Month
+104                 COLUMN         =  transaction_date
+105                 FORMAT         =  MONNAME3.
+106                 TYPE           =  MONTHS
+107                 CAPTION        =  'Month'
+108                 SORT_ORDER     =  ASCENDING;
+109        
+110              LEVEL Date
+111                 COLUMN         = transaction_date
+112                 FORMAT         =  mmddyy10.
+113                 TYPE           =  DAYS
+114                 CAPTION        =  'Transaction Date'
+115                 SORT_ORDER     =  ASCENDING;
+116        
+117              LEVEL Quarter
+118                 COLUMN         =  transaction_date
+119                 FORMAT         =  QTR1.
+120                 TYPE           =  QUARTERS
+121                 CAPTION        =  'Quarter'
+122                 SORT_ORDER     =  ASCENDING;
+123        
+124              LEVEL 'Month Year'n
+125                 COLUMN         =  transaction_date
+126                 FORMAT         =  MONYY7.
+127                 TYPE           =  MONTHS
+128                 CAPTION        =  'Month Year'
+129                 SORT_ORDER     =  ASCENDING;
+130        
+131           MEASURE 'Transaction Amount'n
+132              STAT        = SUM
+133              COLUMN      = transaction_amount
+134              CAPTION     = 'Transaction Amount'
+135              FORMAT      = DOLLAR22.0
+136              DEFAULT;
+137        
+138           MEASURE 'AVG Transaction'n
+4                                                          The SAS System                          21:36 Wednesday, December 5, 2012
+
+139              STAT        = AVG
+140              COLUMN      = transaction_amount
+141              CAPTION     = 'Transaction Amount'
+142              FORMAT      = DOLLAR22.2;
+143        
+144           MEASURE 'Transaction Count'n
+145              STAT        = N
+146              COLUMN      = transaction_key
+147              CAPTION     = 'Transaction Count'
+148              FORMAT      = comma22.;
+149        
+150           /* Rolling month sets */
+151           DEFINE SET "[Transaction Summary].[Rolling 12 Months]" as "Tail([Time].[YMD].[Month].AllMembers ,12)";
+152           DEFINE SET "[Transaction Summary].[Rolling 24 Months]" as "Tail([Time].[YMD].[Month].AllMembers ,24)";
+153           DEFINE SET "[Transaction Summary].[Rolling 36 Months]" as "Tail([Time].[YMD].[Month].AllMembers ,36)";
+154        
+155           /* Rolling time aggregate members */
+156           DEFINE MEMBER "[Transaction Summary].[Time].[YMD].[All Years].[Rolling 12 Months]" as 'Aggregate(
+156      ! Tail([Time].[YMD].[Month].AllMembers ,12) )';
+157           DEFINE MEMBER "[Transaction Summary].[Time].[YMD].[All Years].[Rolling 24 Months]" as 'Aggregate(
+157      ! Tail([Time].[YMD].[Month].AllMembers ,24) )';
+158           DEFINE MEMBER "[Transaction Summary].[Time].[YMD].[All Years].[Rolling 36 Months]" as 'Aggregate(
+158      ! Tail([Time].[YMD].[Month].AllMembers ,36) )';
+159        
+160        run;
+
+TSTLVL: Update enabled version of 9.2.
+IN PROGRESS: Initial connection with metadata server
+COMPLETED:   Initial connection with metadata server
+
+IN PROGRESS: Initialize cube build
+(TSTLVL TIMING)Begin time for cube building: 10H:0M:53S
+NOTE: Workpath: "/data/saswork/SAS_workF32A00007FDD_vSAS/SAS_workB4B800007FDD_vSAS"
+WARNING: The OLAP Procedure does not support the NOFMTERR system option.
+NOTE: The property SAS_MEMBER_DATE was created for level "Year".
+NOTE: The property SAS_MEMBER_DATE was created for level "Month".
+NOTE: The property SAS_MEMBER_DATE was created for level "Date".
+NOTE: The property SAS_MEMBER_DATE was created for level "Quarter".
+NOTE: The property SAS_MEMBER_DATE was created for level "Month Year".
+NOTE: TEST_LEVEL (16) is set.
+MEMSIZE     = 4194304 KB
+REALMEMSIZE = 3145728 KB
+SUMSIZE     = 3145728 KB
+NOTE: MEMSIZE/REALMEMSIZE settings will determine memory usage for initial summarization.
+NOTE: MEMSIZE/REALMEMSIZE settings will determine memory usage for initial summarization.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+COMPLETED:   Initialize cube build
+
+IN PROGRESS: Initial summarization of input data
+ 
+ODBC_3: Prepared: on connection 0
+SELECT  "transaction_date", "location_key", "transaction_amount", "transaction_key"  FROM public.FACT_TRANSACTIONS 
+ 
+ 
+ODBC_4: Executed: on connection 0
+Prepared statement ODBC_3
+ 
+5                                                          The SAS System                          21:36 Wednesday, December 5, 2012
+
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+COMPLETED:   Initial summarization of input data
+
+NOTE: Available memory for 'hierarchy' stage: 3145728 KB
+NOTE: The files to share memory are 6.
+NOTE: Setting memory to 393216 kb where MEMSIZE and/or REALMEMSIZE set
+
+
+NOTE: Memory used for star schema index processing determined by MEMSIZE/REALMEMSIZE and is 393216 kb
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+IN PROGRESS: Summarizing "Location" dimension table
+ 
+ODBC_5: Prepared: on connection 0
+SELECT  "state", "county", "city", "location_key"  FROM public.DIM_LOCATION 
+ 
+ 
+ODBC_6: Executed: on connection 0
+Prepared statement ODBC_5
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+COMPLETED    Summarizing "Location" dimension table
+
+Time to summarize 'Location' dimension table and make room for it:
+(TSTLVL TIMING) Clocktime  : 0.2455 sec
+(TSTLVL TIMING) Systime    : 0.0100 sec
+(TSTLVL TIMING) CPUtime    : 0.1800 sec
+
+Begin time for getting captions for 'Location' hierarchy: 
+(TSTLVL TIMING)Getting captions: 17H:50M:8S
+IN PROGRESS: Metadata creation for hierarchy "Location"
+NOTE: Cardinality for levels in the "Location" hierarchy (test_lvl=8):
+   State: 39 
+   County: 191 
+   City: 13844 
+
+
+COMPLETED:   Metadata creation for hierarchy "Location"
+
+Time to create member caption metadata for 'Location' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0423 sec
+(TSTLVL TIMING) Systime    : 0.0100 sec
+(TSTLVL TIMING) CPUtime    : 0.0300 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 17H:50M:8S
+IN PROGRESS: Member metadata creation for 'Location' hierarchy
+NOTE: The total number of members in hierarchy is 22334.
+Member cardinality  per level in hierarchy:
+Level 1: 39 
+Level 2: 2297 
+6                                                          The SAS System                          21:36 Wednesday, December 5, 2012
+
+Level 3: 19997 
+COMPLETED: Member metadata creation for 'Location' hierarchy
+Time to create member metadata for 'Location' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0428 sec
+(TSTLVL TIMING) Systime    : 0.0100 sec
+(TSTLVL TIMING) CPUtime    : 0.0300 sec
+
+NOTE: The initial memory limit for classification tables was 3145728K bytes. Actual memory acquired was 4928K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+Begin time for getting captions for 'YMD' hierarchy: 
+(TSTLVL TIMING)Getting captions: 17H:50M:8S
+IN PROGRESS: Metadata creation for hierarchy "YMD"
+NOTE: Cardinality for levels in the "YMD" hierarchy (test_lvl=8):
+   Year: 3 
+   Month: 12 
+   Date: 791 
+
+
+COMPLETED:   Metadata creation for hierarchy "YMD"
+
+Time to create member caption metadata for 'YMD' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0010 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+Begin time for getting captions for 'YQMD' hierarchy: 
+(TSTLVL TIMING)Getting captions: 17H:50M:8S
+IN PROGRESS: Metadata creation for hierarchy "YQMD"
+NOTE: Cardinality for levels in the "YQMD" hierarchy (test_lvl=8):
+   Year: 3 
+   Quarter: 4 
+   Month: 12 
+   Date: 791 
+
+
+COMPLETED:   Metadata creation for hierarchy "YQMD"
+
+Time to create member caption metadata for 'YQMD' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0000 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+Begin time for getting captions for 'MonthYear' hierarchy: 
+(TSTLVL TIMING)Getting captions: 17H:50M:8S
+IN PROGRESS: Metadata creation for hierarchy "MonthYear"
+NOTE: Cardinality for levels in the "MonthYear" hierarchy (test_lvl=8):
+   Month Year: 26 
+
+
+COMPLETED:   Metadata creation for hierarchy "MonthYear"
+
+Time to create member caption metadata for 'MonthYear' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0001 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 17H:50M:8S
+IN PROGRESS: Member metadata creation for 'YMD' hierarchy
+7                                                          The SAS System                          21:36 Wednesday, December 5, 2012
+
+NOTE: The total number of members in hierarchy is 821.
+Member cardinality  per level in hierarchy:
+Level 1: 3 
+Level 2: 26 
+Level 3: 791 
+COMPLETED: Member metadata creation for 'YMD' hierarchy
+Time to create member metadata for 'YMD' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0012 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 17H:50M:8S
+IN PROGRESS: Member metadata creation for 'YQMD' hierarchy
+NOTE: The total number of members in hierarchy is 831.
+Member cardinality  per level in hierarchy:
+Level 1: 3 
+Level 2: 10 
+Level 3: 26 
+Level 4: 791 
+COMPLETED: Member metadata creation for 'YQMD' hierarchy
+Time to create member metadata for 'YQMD' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0146 sec
+(TSTLVL TIMING) Systime    : 0.0100 sec
+(TSTLVL TIMING) CPUtime    : 0.0200 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 17H:50M:8S
+IN PROGRESS: Member metadata creation for 'MonthYear' hierarchy
+NOTE: The total number of members in hierarchy is 27.
+Member cardinality  per level in hierarchy:
+Level 1: 26 
+COMPLETED: Member metadata creation for 'MonthYear' hierarchy
+Time to create member metadata for 'MonthYear' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0002 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+WARNING: At least one leaf member of a hierarchy is referred to by multiple dimension keys.
+NOTE: Consider using the COMPACT_NWAY option.  Use of this option might result in a reduction in size of the final NWAY.
+IN PROGRESS: Mapping fact table to dimension tables
+(TSTLVL TIMING)Begin time for Mapping fact table to dimension tables: 17H:50M:15S
+NOTE: Number of unique dimension keys for table Location: 20000. Number found in fact table: 20000
+(TSTLVL TIMING)Begin time for mapping fact keys to above dimension 17H:50M:15S
+
+FACTMAP: Creating fact key map array for dim: Location
+FACTMAP: Number bytes: 480024
+FACTMAP: Number 128M blocks to allocate: 1
+FACTMAP: Last block size: 480024
+
+Time to map keys for 'Location' dimension to fact table
+(TSTLVL TIMING) Clocktime  : 0.0106 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0100 sec
+
+Time to map keys for 'Time' dimension to fact table
+(TSTLVL TIMING) Clocktime  : 0.0106 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0100 sec
+
+8                                                          The SAS System                          21:36 Wednesday, December 5, 2012
+
+COMPLETED: Mapping fact table to dimension tables
+Total time to map fact table to dimension tables:
+(TSTLVL TIMING) Clocktime  : 0.0140 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0200 sec
+
+IN PROGRESS: NWAY creation
+NOTE: Available memory to create aggregations: 2000 MB.
+NOTE: Maximum threads available to create aggregation indices: 4.
+NOTE: There is no limit on the number of indexes that may be created asynchronously.
+IN PROGRESS: WRITE NWAY TO DISK
+(TSTLVL TIMING)Begin time for writing nway to disk: 17H:50M:15S
+NOTE: The initial memory limit for classification tables was 3145728K bytes. Actual memory acquired was 1867392K bytes.
+NOTE: The utility file buffer size selected was 16K bytes.
+COMPLETED: WRITE NWAY TO DISK
+(TSTLVL TIMING)End time for writing nway to disk: 17H:50M:23S
+Time to write nway:
+(TSTLVL TIMING) Clocktime  : 7.9108 sec
+(TSTLVL TIMING) Systime    : 3.9900 sec
+(TSTLVL TIMING) CPUtime    : 6.5100 sec
+
+
+
+IN PROGRESS: NWAY index creation
+(TSTLVL TIMING)Begin time for creating index for nway: 17H:50M:23S
+COMPLETED:   NWAY index creation
+
+Time to create NWAY index: 
+(TSTLVL TIMING) Clocktime  : 31.9339 sec
+(TSTLVL TIMING) Systime    : 6.0600 sec
+(TSTLVL TIMING) CPUtime    : 102.5800 sec
+
+NOTE: Number of NWAY records: 15820000
+COMPLETED:   NWAY creation
+
+IN PROGRESS: Disking cube metadata files
+COMPLETED:   Disking cube metadata files
+
+IN PROGRESS: Cube registration with metadata server
+COMPLETED:   Cube registration with metadata server
+
+IN PROGRESS: Finalizing cube build
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                     27940.139822
+Total SQL execution seconds were:                   0.000057
+Total SQL prepare seconds were:                     0.000021
+Total SQL describe seconds were:                    1.472996
+Total seconds used by the ODBC ACCESS engine were   28202.329349
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.117049
+Total SQL execution seconds were:                   0.000006
+Total SQL prepare seconds were:                     0.000044
+Total SQL describe seconds were:                    0.147614
+Total seconds used by the ODBC ACCESS engine were   28201.419211
+ 
+9                                                          The SAS System                          21:36 Wednesday, December 5, 2012
+
+COMPLETED:   Finalizing cube build
+
+Total time to build cube:
+(TSTLVL TIMING) Clocktime  : 28201.3304 sec
+(TSTLVL TIMING) Systime    : 9354.5500 sec
+(TSTLVL TIMING) CPUtime    : 33693.5100 sec
+
+(TSTLVL TIMING)Time cube build completed: 17H:50M:55S
+NOTE: Cube "Transaction Summary" was created successfully.
+NOTE: Processing of all DEFINE and UNDEFINE statements is completed.
+NOTE: All DEFINE and UNDEFINE statements processed successfully.
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           7:50:02.45
+      user cpu time       9:21:33.70
+      system cpu time     2:35:55.10
+      memory              2056745.84k
+      OS Memory           2072852.00k
+      Timestamp           12/07/2012 05:50:54 PM
+      Page Faults                       3
+      Page Reclaims                     1435822
+      Page Swaps                        0
+      Voluntary Context Switches        2512259
+      Involuntary Context Switches      333138
+      Block Input Operations            1080
+      Block Output Operations           9357248
+      
+
+161        
+162        
+163        GOPTIONS NOACCESSIBLE;
+164        %LET _CLIENTTASKLABEL=;
+165        %LET _CLIENTPROJECTPATH=;
+166        %LET _CLIENTPROJECTNAME=;
+167        %LET _SASPROGRAMFILE=;
+168        
+169        ;*';*";*/;quit;run;
+170        ODS _ALL_ CLOSE;
+171        
+172        
+173        QUIT; RUN;
+174        

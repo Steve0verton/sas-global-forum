@@ -1,0 +1,1273 @@
+1                                                          The SAS System                             18:23 Thursday, March 28, 2013
+
+1          ;*';*";*/;quit;run;
+2          OPTIONS PAGENO=MIN;
+3          %LET _CLIENTTASKLABEL='BuildTransactionSummaryCubeFULL v2';
+4          %LET _CLIENTPROJECTPATH='';
+5          %LET _CLIENTPROJECTNAME='';
+6          %LET _SASPROGRAMFILE='/projects/SGF2013/programs/BuildTransactionSummaryCubeFULL v2.sas';
+7          
+8          ODS _ALL_ CLOSE;
+9          OPTIONS DEV=ACTIVEX;
+10         GOPTIONS XPIXELS=0 YPIXELS=0;
+11         FILENAME EGHTML TEMP;
+12         ODS HTML(ID=EGHTML) FILE=EGHTML ENCODING='utf-8' STYLE=HtmlBlue
+12       ! STYLESHEET=(URL="file:///C:/SAS/SASEnterpriseGuide/5.1/Styles/HtmlBlue.css")
+12       ! ATTRIBUTES=("CODEBASE"="http://www2.sas.com/codebase/graph/v93/sasgraph.exe#version=9,3") NOGTITLE NOGFOOTNOTE
+12       ! GPATH=&sasworklocation;
+NOTE: Writing HTML(EGHTML) Body file: EGHTML
+13         
+14         GOPTIONS ACCESSIBLE;
+15         
+16         options fullstimer fmterr;
+17         options SASTRACE=',,,ds' sastraceloc=saslog nostsuffix;
+18         %let syssumtrace=3;
+19         
+20         proc options group=performance; run;
+
+    SAS (r) Proprietary Software Release 9.3  TS1M2
+
+
+Group=PERFORMANCE
+ ARMAGENT=         ARM Agent to use to collect ARM records
+ ARMLOC=ARMLOG.LOG Identify location where ARM records are to be written
+ ARMSUBSYS=(ARM_NONE)
+                   Enable/Disable ARMing of SAS subsystems
+ BUFNO=1           Number of buffers for each SAS data set
+ BUFSIZE=8388608   Size of buffer for page of SAS data set
+ CGOPTIMIZE=3      Control code generation optimization
+ CMPMODEL=BOTH     Identify CMP model storage type
+ CMPOPT=(NOEXTRAMATH NOMISSCHECK NOPRECISE NOGUARDCHECK NOGENSYMNAMES NOFUNCDIFFERENCING)
+                   Enable SAS compiler performance optimizations
+ COMPRESS=NO       Specifies whether to compress observations in output SAS data sets
+ CPUCOUNT=4        Number of processors available.
+ NODBIDIRECTEXEC   Do not use SQL optimization with SAS/ACCESS engines
+ DBSLICEPARM=(THREADED_APPS, 2)
+                   Alter DBMS engine threaded read behavior by expanding or disallowing threaded reads.
+ MAXSEGRATIO=75    SPD Engine pre-evaluation phase time ratio
+ MEXECSIZE=65536   Maximum size for a macro to execute in memory
+ MINPARTSIZE=16777216
+                   Minimum partition size when creating SPD Engine files
+ SORTSIZE=16106127360
+                   Size parameter for sort
+ SPDEINDEXSORTSIZE=33554432
+                   Identifies memory to be used for SPD Engine asynchronous index create or append
+ SPDEMAXTHREADS=2  Maximum number of threads for SPD Engine processing
+ SPDESORTSIZE=33554432
+                   Memory for SPD Engine sort operations
+ SPDEUTILLOC=      Location where SPD Engine temporary utility files are created
+ SPDEWHEVAL=COST   Specifies SPD Engine WHERE statement evaluation strategy
+ SQLGENERATION=(NONE DBMS='TERADATA DB2 ORACLE NETEZZA ASTER GREENPLM')
+2                                                          The SAS System                             18:23 Thursday, March 28, 2013
+
+                   Identify when to perform SQL generation for SAS Procedure input processing
+ SQLREDUCEPUT=DBMS PROC SQL optimization for put() functions
+ SQLREDUCEPUTOBS=0 PROC SQL optimization for put() functions observation threshold
+ SQLREDUCEPUTVALUES=0
+                   PROC SQL optimization for put() functions value threshold
+ THREADS           Threads are available for use with features of the SAS System that support threading
+ MEMSIZE=21474836480
+                   Specifies the limit on the total amount of memory to be used by the SAS System
+NOTE: PROCEDURE OPTIONS used (Total process time):
+      real time           0.02 seconds
+      user cpu time       0.01 seconds
+      system cpu time     0.00 seconds
+      memory              20.46k
+      OS Memory           21284.00k
+      Timestamp           03/28/2013 06:34:25 PM
+      Page Faults                       0
+      Page Reclaims                     16
+      Page Swaps                        0
+      Voluntary Context Switches        3
+      Involuntary Context Switches      0
+      Block Input Operations            480
+      Block Output Operations           8
+      
+
+21         
+22         proc olap
+23            CUBE                   = "&cube"
+ 
+ODBC_3: Prepared: on connection 0
+SELECT * FROM public.FACT_TRANSACTIONS
+ 
+24            PATH                   = '/projects/SGF2013/cubes'
+25            DESCRIPTION            = 'Transaction Summary demo cube for SGF2013'
+26            FACT                   = defiant.FACT_TRANSACTIONS
+27            CONCURRENT             = 4
+28            ASYNCINDEXLIMIT        = 2
+29            MAXTHREADS             = 2
+30            EMPTY_CHAR             = '!UNKNOWN'
+31            TEST_LEVEL             = 26
+32         ;
+33         
+34            METASVR
+35               HOST        = "enterprise"
+36               PORT        = 8561
+37               OLAP_SCHEMA = "SASApp - OLAP Schema";
+38         
+39             DIMENSION 'Transaction Month Year'n
+40               CAPTION          = 'Transaction Month Year'
+41               TYPE             = TIME
+42               SORT_ORDER       = ASCENDING
+43               HIERARCHIES      = ( 'Transaction Month Year'n );
+44         
+45               HIERARCHY 'Transaction Month Year'n
+46                  ALL_MEMBER = 'All Years'
+47                  CAPTION    = 'Month Year'
+48                  LEVELS     = ( 'Month Year'n )
+49                  DEFAULT;
+50         
+3                                                          The SAS System                             18:23 Thursday, March 28, 2013
+
+51               LEVEL 'Month Year'n
+52                  COLUMN         =  transaction_date
+53                  FORMAT         =  MONYY7.
+54                  TYPE           =  MONTHS
+55                  CAPTION        =  'Month Year'
+56                  SORT_ORDER     =  ASCENDING;
+57         
+58            DIMENSION 'Transaction Type'n
+ 
+ODBC_4: Prepared: on connection 0
+SELECT * FROM public.DIM_TRANSACTION_TYPE
+ 
+59               CAPTION          = 'Transaction Type'
+60               SORT_ORDER       = ASCENDING
+61               DIMTBL           = defiant.DIM_TRANSACTION_TYPE
+62               DIMKEY           = transaction_type_key
+63               FACTKEY          = transaction_type_key
+64               HIERARCHIES      = ( 'Transaction Type'n );
+65         
+66               HIERARCHY  'Transaction Type'n
+67                  ALL_MEMBER = 'All Transaction Types'
+68                  CAPTION    = 'Type > Category'
+69                  LEVELS     = ( TransactionType TransactionCategory )
+70                  DEFAULT;
+71         
+72               LEVEL TransactionType
+73                  COLUMN         = transaction_type
+74                  CAPTION        =  'Type'
+75                  SORT_ORDER     =  ASCENDING;
+76         
+77               LEVEL TransactionCategory
+78                  COLUMN         = transaction_category
+79                  CAPTION        =  'Category'
+80                  SORT_ORDER     =  ASCENDING;
+81         
+82            DIMENSION Location
+ 
+ODBC_5: Prepared: on connection 0
+SELECT * FROM public.DIM_LOCATION
+ 
+83               CAPTION          = 'Location'
+84               SORT_ORDER       = ASCENDING
+85               DIMTBL           = defiant.DIM_LOCATION
+86               DIMKEY           = location_key
+87               FACTKEY          = location_key
+88               HIERARCHIES      = ( Location );
+89         
+90               HIERARCHY Location
+91                  ALL_MEMBER = 'All States'
+92                  CAPTION    = 'State > County > City'
+93                  LEVELS     = ( State County City )
+94                  DEFAULT;
+95         
+96               LEVEL State
+97                  CAPTION        =  'State'
+98                  SORT_ORDER     =  ASCENDING;
+99         
+100              LEVEL County
+4                                                          The SAS System                             18:23 Thursday, March 28, 2013
+
+101                 CAPTION        =  'County'
+102                 SORT_ORDER     =  ASCENDING;
+103        
+104              LEVEL City
+105                 CAPTION        =  'City'
+106                 SORT_ORDER     =  ASCENDING;
+107        
+108           DIMENSION 'Party Account'n
+ 
+ODBC_6: Prepared: on connection 0
+SELECT * FROM public.DIM_PARTY_ACCOUNT
+ 
+109              CAPTION          = 'Party Account'
+110              SORT_ORDER       = ASCENDING
+111              DIMTBL           = defiant.DIM_PARTY_ACCOUNT
+112              DIMKEY           = party_account_key
+113              FACTKEY          = party_account_key
+114              HIERARCHIES      = ( 'Party Type > Party > Account'n
+115                                   'NAICS Code > Party > Account'n
+116                                   'Party > Account'n
+117                                   PartyNumber
+118                                   'Type > NAICS > Party > Account'n
+119                                    AccountNumber );
+120        
+121              HIERARCHY  'Party Type > Party > Account'n
+122                 ALL_MEMBER = 'All Party Types'
+123                 CAPTION    = 'Party Type > Party Number > Account Number'
+124                 LEVELS     = ( 'Party Type'n 'Party Number'n 'Account Number'n )
+125                 DEFAULT;
+126        
+127              HIERARCHY  'NAICS Code > Party > Account'n
+128                 ALL_MEMBER = 'All NAICS Codes'
+129                 CAPTION    = 'NAICS Code > Party Number > Account Number'
+130                 LEVELS     = ( NAICS 'Party Number'n 'Account Number'n );
+131        
+132              HIERARCHY  'Party > Account'n
+133                 ALL_MEMBER = 'All Party Numbers'
+134                 CAPTION    = 'Party Number > Account Number'
+135                 LEVELS     = ( 'Party Number'n 'Account Number'n );
+136        
+137              HIERARCHY  PartyNumber
+138                 ALL_MEMBER = 'All Party Numbers'
+139                 CAPTION    = 'Party Number'
+140                 LEVELS     = ( 'Party Number'n );
+141        
+142              HIERARCHY  'Type > NAICS > Party > Account'n
+143                 ALL_MEMBER = 'All Party Types'
+144                 CAPTION    = 'Party Type > NAICS Code > Party Number > Account Number'
+145                 LEVELS     = ( 'Party Type'n NAICS 'Party Number'n 'Account Number'n );
+146        
+147              HIERARCHY  AccountNumber
+148                 ALL_MEMBER = 'All Account Numbers'
+149                 CAPTION    = 'Account Number'
+150                 LEVELS     = ( 'Account Number'n );
+151        
+152              LEVEL 'Party Number'n
+153                 COLUMN         = party_number
+154                 CAPTION        =  'Party Number'
+5                                                          The SAS System                             18:23 Thursday, March 28, 2013
+
+155                 SORT_ORDER     =  ASCENDING
+156                 EMPTY          = '!UNKNOWN';
+157        
+158              LEVEL 'Account Number'n
+159                 COLUMN         = account_number
+160                 CAPTION        =  'Account Number'
+161                 SORT_ORDER     =  ASCENDING
+162                 EMPTY          = '!UNKNOWN';
+163        
+164              LEVEL 'Party Type'n
+165                 COLUMN         = party_type
+166                 CAPTION        =  'Party Type'
+167                 SORT_ORDER     =  ASCENDING
+168                 EMPTY          = '!UNKNOWN';
+169        
+170              LEVEL NAICS
+171                 COLUMN         = naics_code
+172                 CAPTION        =  'NAICS Code'
+173                 SORT_ORDER     =  ASCENDING
+174                 EMPTY          = '!INDIVIDUAL';
+175        
+176           PROPERTY 'Party Name'n
+177              level='Party Number'n
+178              column=party_name
+179              hierarchy=('Party Type > Party > Account'n
+180                         'NAICS Code > Party > Account'n
+181                         'Party > Account'n
+182                         PartyNumber
+183                         'Type > NAICS > Party > Account'n )
+184              caption='Party Name'
+185              description='Party Name'
+186           ;
+187        
+188           PROPERTY 'Party Type'n
+189              level='Party Number'n
+190              column=party_type
+191              hierarchy=('NAICS Code > Party > Account'n
+192                         'Party > Account'n
+193                         PartyNumber )
+194              caption='Party Type'
+195              description='Party Type'
+196           ;
+197        
+198           PROPERTY 'Account Name'n
+199              level='Account Number'n
+200              column=account_name
+201              hierarchy=('Party Type > Party > Account'n
+202                         'NAICS Code > Party > Account'n
+203                         'Party > Account'n
+204                         'Type > NAICS > Party > Account'n AccountNumber )
+205              caption='Account Name'
+206              description='Account Name'
+207           ;
+208        
+209           PROPERTY 'Account Open Date'n
+210              level='Account Number'n
+211              column=account_open_date
+212              hierarchy=('Party Type > Party > Account'n
+6                                                          The SAS System                             18:23 Thursday, March 28, 2013
+
+213                         'NAICS Code > Party > Account'n
+214                         'Party > Account'n
+215                         'Type > NAICS > Party > Account'n AccountNumber)
+216              caption='Account Open Date'
+217              description='Account Open Date'
+218           ;
+219        
+220           MEASURE 'Transaction Amount'n
+221              STAT        = SUM
+222              COLUMN      = transaction_amount
+223              CAPTION     = 'Transaction Amount'
+224              FORMAT      = DOLLAR24.0
+225              DEFAULT;
+226        
+227           MEASURE 'AVG Transaction Amount'n
+228              STAT        = AVG
+229              COLUMN      = transaction_amount
+230              CAPTION     = 'AVG Transaction Amount'
+231              FORMAT      = DOLLAR22.2;
+232        
+233           MEASURE 'Transaction Count'n
+234              STAT        = N
+235              COLUMN      = transaction_key
+236              CAPTION     = 'Transaction Count'
+237              FORMAT      = comma22.;
+238        
+239        run;
+
+TSTLVL: Update enabled version of 9.2.
+IN PROGRESS: Initial connection with metadata server
+COMPLETED:   Initial connection with metadata server
+
+IN PROGRESS: Initialize cube build
+(TSTLVL TIMING)Begin time for cube building: 18H:35M:32S
+NOTE: Workpath: "/projects/saswork/SAS_workB88F00000BD9_enterprise/SAS_workBA8E00000BD9_enterprise"
+NOTE: The property SAS_MEMBER_DATE was created for level "Month Year".
+NOTE: TEST_LEVEL (16) is set.
+MEMSIZE     = 20971520 KB
+REALMEMSIZE = 15728640 KB
+SUMSIZE     = 15728640 KB
+NOTE: MEMSIZE/REALMEMSIZE settings will determine memory usage for initial summarization.
+NOTE: MEMSIZE/REALMEMSIZE settings will determine memory usage for initial summarization.
+NOTE: MEMSIZE/REALMEMSIZE settings will determine memory usage for initial summarization.
+NOTE: MEMSIZE/REALMEMSIZE settings will determine memory usage for initial summarization.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+COMPLETED:   Initialize cube build
+
+IN PROGRESS: Initial summarization of input data
+ 
+ODBC_7: Prepared: on connection 0
+SELECT  "transaction_date", "transaction_type_key", "location_key", "party_account_key", "transaction_amount", "transaction_key"  
+FROM public.FACT_TRANSACTIONS 
+ 
+ 
+ODBC_8: Executed: on connection 0
+Prepared statement ODBC_7
+ 
+7                                                          The SAS System                             18:23 Thursday, March 28, 2013
+
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+COMPLETED:   Initial summarization of input data
+
+NOTE: Available memory for 'hierarchy' stage: 15728640 KB
+NOTE: The files to share memory are 6.
+NOTE: Setting memory to 1966080 kb where MEMSIZE and/or REALMEMSIZE set
+
+
+NOTE: Memory used for star schema index processing determined by MEMSIZE/REALMEMSIZE and is 1966080 kb
+Begin time for getting captions for 'Transaction Month Year' hierarchy: 
+(TSTLVL TIMING)Getting captions: 13H:44M:13S
+IN PROGRESS: Metadata creation for hierarchy "Transaction Month Year"
+NOTE: Cardinality for levels in the "Transaction Month Year" hierarchy (test_lvl=8):
+   Month Year: 24 
+
+
+COMPLETED:   Metadata creation for hierarchy "Transaction Month Year"
+
+Time to create member caption metadata for 'Transaction Month Year' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0179 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 13H:44M:13S
+IN PROGRESS: Member metadata creation for 'Transaction Month Year' hierarchy
+NOTE: The total number of members in hierarchy is 25.
+Member cardinality  per level in hierarchy:
+Level 1: 24 
+COMPLETED: Member metadata creation for 'Transaction Month Year' hierarchy
+Time to create member metadata for 'Transaction Month Year' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0005 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+IN PROGRESS: Summarizing "Transaction Type" dimension table
+ 
+ODBC_9: Prepared: on connection 0
+SELECT  "transaction_type", "transaction_category", "transaction_type_key"  FROM public.DIM_TRANSACTION_TYPE 
+ 
+ 
+ODBC_10: Executed: on connection 0
+Prepared statement ODBC_9
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+COMPLETED    Summarizing "Transaction Type" dimension table
+
+Time to summarize 'Transaction Type' dimension table and make room for it:
+(TSTLVL TIMING) Clocktime  : 0.0105 sec
+8                                                          The SAS System                             18:23 Thursday, March 28, 2013
+
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+Begin time for getting captions for 'Transaction Type' hierarchy: 
+(TSTLVL TIMING)Getting captions: 13H:44M:13S
+IN PROGRESS: Metadata creation for hierarchy "Transaction Type"
+NOTE: Cardinality for levels in the "Transaction Type" hierarchy (test_lvl=8):
+   TransactionType: 2 
+   TransactionCategory: 10 
+
+
+COMPLETED:   Metadata creation for hierarchy "Transaction Type"
+
+Time to create member caption metadata for 'Transaction Type' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0005 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 13H:44M:13S
+IN PROGRESS: Member metadata creation for 'Transaction Type' hierarchy
+NOTE: The total number of members in hierarchy is 16.
+Member cardinality  per level in hierarchy:
+Level 1: 2 
+Level 2: 13 
+COMPLETED: Member metadata creation for 'Transaction Type' hierarchy
+Time to create member metadata for 'Transaction Type' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0005 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+NOTE: The initial memory limit for classification tables was 15728640K bytes. Actual memory acquired was 128K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+IN PROGRESS: Summarizing "Location" dimension table
+ 
+ODBC_11: Prepared: on connection 0
+SELECT  "state", "county", "city", "location_key"  FROM public.DIM_LOCATION 
+ 
+ 
+ODBC_12: Executed: on connection 0
+Prepared statement ODBC_11
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+COMPLETED    Summarizing "Location" dimension table
+
+Time to summarize 'Location' dimension table and make room for it:
+(TSTLVL TIMING) Clocktime  : 0.3716 sec
+(TSTLVL TIMING) Systime    : 0.0200 sec
+(TSTLVL TIMING) CPUtime    : 0.3700 sec
+
+Begin time for getting captions for 'Location' hierarchy: 
+(TSTLVL TIMING)Getting captions: 13H:44M:13S
+IN PROGRESS: Metadata creation for hierarchy "Location"
+9                                                          The SAS System                             18:23 Thursday, March 28, 2013
+
+NOTE: Cardinality for levels in the "Location" hierarchy (test_lvl=8):
+   State: 39 
+   County: 191 
+   City: 13844 
+
+
+COMPLETED:   Metadata creation for hierarchy "Location"
+
+Time to create member caption metadata for 'Location' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.1241 sec
+(TSTLVL TIMING) Systime    : 0.0200 sec
+(TSTLVL TIMING) CPUtime    : 0.1100 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 13H:44M:13S
+IN PROGRESS: Member metadata creation for 'Location' hierarchy
+NOTE: The total number of members in hierarchy is 22334.
+Member cardinality  per level in hierarchy:
+Level 1: 39 
+Level 2: 2297 
+Level 3: 19997 
+COMPLETED: Member metadata creation for 'Location' hierarchy
+Time to create member metadata for 'Location' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.1154 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.1100 sec
+
+NOTE: The initial memory limit for classification tables was 15728640K bytes. Actual memory acquired was 4928K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+IN PROGRESS: Summarizing "Party Account" dimension table
+ 
+ODBC_13: Prepared: on connection 0
+SELECT  "party_type", "party_number", "account_number", "naics_code", "party_name", "account_name", "account_open_date", 
+"party_account_key"  FROM public.DIM_PARTY_ACCOUNT 
+ 
+ 
+ODBC_14: Executed: on connection 0
+Prepared statement ODBC_13
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+COMPLETED    Summarizing "Party Account" dimension table
+
+Time to summarize 'Party Account' dimension table and make room for it:
+(TSTLVL TIMING) Clocktime  : 58.5084 sec
+(TSTLVL TIMING) Systime    : 2.8300 sec
+(TSTLVL TIMING) CPUtime    : 68.3600 sec
+
+Begin time for getting captions for 'Party Type > Party > Account' hierarchy: 
+(TSTLVL TIMING)Getting captions: 13H:45M:12S
+IN PROGRESS: Metadata creation for hierarchy "Party Type > Party > Account"
+NOTE: Cardinality for levels in the "Party Type > Party > Account" hierarchy (test_lvl=8):
+   Party Type: 2 
+   Party Number: 916675 
+10                                                         The SAS System                             18:23 Thursday, March 28, 2013
+
+   Account Number: 1323717 
+
+
+COMPLETED:   Metadata creation for hierarchy "Party Type > Party > Account"
+
+Time to create member caption metadata for 'Party Type > Party > Account' hierarchy:
+(TSTLVL TIMING) Clocktime  : 11.9630 sec
+(TSTLVL TIMING) Systime    : 0.7800 sec
+(TSTLVL TIMING) CPUtime    : 11.1800 sec
+
+Begin time for getting captions for 'NAICS Code > Party > Account' hierarchy: 
+(TSTLVL TIMING)Getting captions: 13H:45M:24S
+IN PROGRESS: Metadata creation for hierarchy "NAICS Code > Party > Account"
+NOTE: Cardinality for levels in the "NAICS Code > Party > Account" hierarchy (test_lvl=8):
+   NAICS: 102 
+   Party Number: 916675 
+   Account Number: 1323717 
+
+
+COMPLETED:   Metadata creation for hierarchy "NAICS Code > Party > Account"
+
+Time to create member caption metadata for 'NAICS Code > Party > Account' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0008 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+Begin time for getting captions for 'Party > Account' hierarchy: 
+(TSTLVL TIMING)Getting captions: 13H:45M:24S
+IN PROGRESS: Metadata creation for hierarchy "Party > Account"
+NOTE: Cardinality for levels in the "Party > Account" hierarchy (test_lvl=8):
+   Party Number: 916675 
+   Account Number: 1323717 
+
+
+COMPLETED:   Metadata creation for hierarchy "Party > Account"
+
+Time to create member caption metadata for 'Party > Account' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0004 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+Begin time for getting captions for 'PartyNumber' hierarchy: 
+(TSTLVL TIMING)Getting captions: 13H:45M:24S
+IN PROGRESS: Metadata creation for hierarchy "PartyNumber"
+NOTE: Cardinality for levels in the "PartyNumber" hierarchy (test_lvl=8):
+   Party Number: 916675 
+
+
+COMPLETED:   Metadata creation for hierarchy "PartyNumber"
+
+Time to create member caption metadata for 'PartyNumber' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0003 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0100 sec
+
+Begin time for getting captions for 'Type > NAICS > Party > Account' hierarchy: 
+(TSTLVL TIMING)Getting captions: 13H:45M:24S
+IN PROGRESS: Metadata creation for hierarchy "Type > NAICS > Party > Account"
+11                                                         The SAS System                             18:23 Thursday, March 28, 2013
+
+NOTE: Cardinality for levels in the "Type > NAICS > Party > Account" hierarchy (test_lvl=8):
+   Party Type: 2 
+   NAICS: 102 
+   Party Number: 916675 
+   Account Number: 1323717 
+
+
+COMPLETED:   Metadata creation for hierarchy "Type > NAICS > Party > Account"
+
+Time to create member caption metadata for 'Type > NAICS > Party > Account' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0005 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+Begin time for getting captions for 'AccountNumber' hierarchy: 
+(TSTLVL TIMING)Getting captions: 13H:45M:24S
+IN PROGRESS: Metadata creation for hierarchy "AccountNumber"
+NOTE: Cardinality for levels in the "AccountNumber" hierarchy (test_lvl=8):
+   Account Number: 1323717 
+
+
+COMPLETED:   Metadata creation for hierarchy "AccountNumber"
+
+Time to create member caption metadata for 'AccountNumber' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0003 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 13H:45M:37S
+IN PROGRESS: Member metadata creation for 'Party Type > Party > Account' hierarchy
+NOTE: The total number of members in hierarchy is 2240395.
+Member cardinality  per level in hierarchy:
+Level 1: 2 
+Level 2: 916675 
+Level 3: 1323717 
+COMPLETED: Member metadata creation for 'Party Type > Party > Account' hierarchy
+Time to create member metadata for 'Party Type > Party > Account' hierarchy:
+(TSTLVL TIMING) Clocktime  : 17.8841 sec
+(TSTLVL TIMING) Systime    : 0.6400 sec
+(TSTLVL TIMING) CPUtime    : 17.2400 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 13H:45M:56S
+IN PROGRESS: Member metadata creation for 'NAICS Code > Party > Account' hierarchy
+NOTE: The total number of members in hierarchy is 2240495.
+Member cardinality  per level in hierarchy:
+Level 1: 102 
+Level 2: 916675 
+Level 3: 1323717 
+COMPLETED: Member metadata creation for 'NAICS Code > Party > Account' hierarchy
+Time to create member metadata for 'NAICS Code > Party > Account' hierarchy:
+(TSTLVL TIMING) Clocktime  : 21.7104 sec
+(TSTLVL TIMING) Systime    : 0.7700 sec
+(TSTLVL TIMING) CPUtime    : 21.8100 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 13H:46M:18S
+IN PROGRESS: Member metadata creation for 'Party > Account' hierarchy
+NOTE: The total number of members in hierarchy is 2240393.
+Member cardinality  per level in hierarchy:
+12                                                         The SAS System                             18:23 Thursday, March 28, 2013
+
+Level 1: 916675 
+Level 2: 1323717 
+COMPLETED: Member metadata creation for 'Party > Account' hierarchy
+Time to create member metadata for 'Party > Account' hierarchy:
+(TSTLVL TIMING) Clocktime  : 12.2916 sec
+(TSTLVL TIMING) Systime    : 0.6900 sec
+(TSTLVL TIMING) CPUtime    : 12.0100 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 13H:46M:31S
+IN PROGRESS: Member metadata creation for 'PartyNumber' hierarchy
+NOTE: The total number of members in hierarchy is 916676.
+Member cardinality  per level in hierarchy:
+Level 1: 916675 
+COMPLETED: Member metadata creation for 'PartyNumber' hierarchy
+Time to create member metadata for 'PartyNumber' hierarchy:
+(TSTLVL TIMING) Clocktime  : 3.2859 sec
+(TSTLVL TIMING) Systime    : 0.1800 sec
+(TSTLVL TIMING) CPUtime    : 3.1200 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 13H:46M:35S
+IN PROGRESS: Member metadata creation for 'Type > NAICS > Party > Account' hierarchy
+NOTE: The total number of members in hierarchy is 2240497.
+Member cardinality  per level in hierarchy:
+Level 1: 2 
+Level 2: 102 
+Level 3: 916675 
+Level 4: 1323717 
+COMPLETED: Member metadata creation for 'Type > NAICS > Party > Account' hierarchy
+Time to create member metadata for 'Type > NAICS > Party > Account' hierarchy:
+(TSTLVL TIMING) Clocktime  : 19.7047 sec
+(TSTLVL TIMING) Systime    : 0.8300 sec
+(TSTLVL TIMING) CPUtime    : 19.5900 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 13H:46M:55S
+IN PROGRESS: Member metadata creation for 'AccountNumber' hierarchy
+NOTE: The total number of members in hierarchy is 1323718.
+Member cardinality  per level in hierarchy:
+Level 1: 1323717 
+COMPLETED: Member metadata creation for 'AccountNumber' hierarchy
+Time to create member metadata for 'AccountNumber' hierarchy:
+(TSTLVL TIMING) Clocktime  : 4.6805 sec
+(TSTLVL TIMING) Systime    : 0.2900 sec
+(TSTLVL TIMING) CPUtime    : 4.3800 sec
+
+NOTE: The initial memory limit for classification tables was 15728640K bytes. Actual memory acquired was 1113920K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+WARNING: At least one leaf member of a hierarchy is referred to by multiple dimension keys.
+NOTE: Consider using the COMPACT_NWAY option.  Use of this option might result in a reduction in size of the final NWAY.
+IN PROGRESS: Mapping fact table to dimension tables
+(TSTLVL TIMING)Begin time for Mapping fact table to dimension tables: 15H:43M:7S
+Time to map keys for 'Transaction Month Year' dimension to fact table
+(TSTLVL TIMING) Clocktime  : 1680205387.1 sec
+(TSTLVL TIMING) Systime    : 4077.9600 sec
+(TSTLVL TIMING) CPUtime    : 83530.9200 sec
+
+NOTE: Number of unique dimension keys for table Transaction Type: 13. Number found in fact table: 13
+(TSTLVL TIMING)Begin time for mapping fact keys to above dimension 15H:43M:7S
+
+13                                                         The SAS System                             18:23 Thursday, March 28, 2013
+
+FACTMAP: Creating fact key map array for dim: Transaction Type
+FACTMAP: Number bytes: 224
+FACTMAP: Number 128M blocks to allocate: 1
+FACTMAP: Last block size: 224
+
+Time to map keys for 'Transaction Type' dimension to fact table
+(TSTLVL TIMING) Clocktime  : 0.0004 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+NOTE: Number of unique dimension keys for table Location: 20000. Number found in fact table: 20000
+(TSTLVL TIMING)Begin time for mapping fact keys to above dimension 15H:43M:7S
+FACTMAP: Creating fact key map array for dim: Location
+FACTMAP: Number bytes: 480024
+FACTMAP: Number 128M blocks to allocate: 1
+FACTMAP: Last block size: 480024
+
+Time to map keys for 'Location' dimension to fact table
+(TSTLVL TIMING) Clocktime  : 0.0240 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0300 sec
+
+NOTE: Number of unique dimension keys for table Party Account: 1323717. Number found in fact table: 1292401
+(TSTLVL TIMING)Begin time for mapping fact keys to above dimension 15H:43M:7S
+
+FACTMAP: Creating fact key map array for dim: Party Account
+FACTMAP: Number bytes: 41356864
+FACTMAP: Number 128M blocks to allocate: 1
+FACTMAP: Last block size: 41356864
+
+Time to map keys for 'Party Account' dimension to fact table
+(TSTLVL TIMING) Clocktime  : 1.7857 sec
+(TSTLVL TIMING) Systime    : 0.1100 sec
+(TSTLVL TIMING) CPUtime    : 1.6800 sec
+
+COMPLETED: Mapping fact table to dimension tables
+Total time to map fact table to dimension tables:
+(TSTLVL TIMING) Clocktime  : 2.2284 sec
+(TSTLVL TIMING) Systime    : 0.4300 sec
+(TSTLVL TIMING) CPUtime    : 1.7800 sec
+
+IN PROGRESS: NWAY creation
+NOTE: Available memory to create aggregations: 3390 MB.
+NOTE: Maximum threads available to create aggregation indices: 2.
+NOTE: Setting the limit on the number of indexes that may be created asynchronously to 2.
+IN PROGRESS: WRITE NWAY TO DISK
+(TSTLVL TIMING)Begin time for writing nway to disk: 15H:43M:9S
+NOTE: The initial memory limit for classification tables was 15728640K bytes. Actual memory acquired was 16526528K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+COMPLETED: WRITE NWAY TO DISK
+(TSTLVL TIMING)End time for writing nway to disk: 16H:25M:48S
+Time to write nway:
+(TSTLVL TIMING) Clocktime  : 2558.3706 sec
+(TSTLVL TIMING) Systime    : 531.5100 sec
+(TSTLVL TIMING) CPUtime    : 1391.7100 sec
+
+
+14                                                         The SAS System                             18:23 Thursday, March 28, 2013
+
+
+IN PROGRESS: NWAY index creation
+(TSTLVL TIMING)Begin time for creating index for nway: 16H:25M:48S
+COMPLETED:   NWAY index creation
+
+Time to create NWAY index: 
+(TSTLVL TIMING) Clocktime  : 39521.8379 sec
+(TSTLVL TIMING) Systime    : 2974.1100 sec
+(TSTLVL TIMING) CPUtime    : 64347.0600 sec
+
+NOTE: Number of NWAY records: 1592989344
+COMPLETED:   NWAY creation
+
+IN PROGRESS: Disking cube metadata files
+COMPLETED:   Disking cube metadata files
+
+IN PROGRESS: Cube registration with metadata server
+COMPLETED:   Cube registration with metadata server
+
+IN PROGRESS: Finalizing cube build
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                     63922.631999
+Total SQL execution seconds were:                   0.000004
+Total SQL prepare seconds were:                     0.000030
+Total SQL describe seconds were:                  124.373721
+Total seconds used by the ODBC ACCESS engine were   118217.413219
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.000579
+Total SQL execution seconds were:                   0.000007
+Total SQL prepare seconds were:                     0.000034
+Total SQL describe seconds were:                    0.003134
+Total seconds used by the ODBC ACCESS engine were   118155.939477
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.269094
+Total SQL execution seconds were:                   0.000005
+Total SQL prepare seconds were:                     0.000019
+Total SQL describe seconds were:                    0.125987
+Total seconds used by the ODBC ACCESS engine were   118155.947609
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                      42.464581
+Total SQL execution seconds were:                   0.000004
+Total SQL prepare seconds were:                     0.000026
+Total SQL describe seconds were:                   10.313045
+Total seconds used by the ODBC ACCESS engine were   118157.039862
+ 
+COMPLETED:   Finalizing cube build
+
+Total time to build cube:
+(TSTLVL TIMING) Clocktime  : 118151.7818 sec
+(TSTLVL TIMING) Systime    : 7567.9400 sec
+(TSTLVL TIMING) CPUtime    : 149229.4300 sec
+15                                                         The SAS System                             18:23 Thursday, March 28, 2013
+
+
+(TSTLVL TIMING)Time cube build completed: 3H:24M:44S
+NOTE: Cube "Transaction Summary" was created successfully.
+NOTE: At least one W.D format was too small for the number to be printed. The decimal may be shifted by the "BEST" format.
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           32:50:18.69
+      user cpu time       41:27:55.62
+      system cpu time     2:06:22.31
+      memory              16723633.07k
+      OS Memory           16915828.00k
+      Timestamp           03/30/2013 03:24:43 AM
+      Page Faults                       170
+      Page Reclaims                     21399603
+      Page Swaps                        0
+      Voluntary Context Switches        42992057
+      Involuntary Context Switches      9219441
+      Block Input Operations            4329085544
+      Block Output Operations           3286192056
+      
+
+240        
+241        %put ******** Define MDX *********;
+******** Define MDX *********
+242        proc olap;
+243        
+244           METASVR
+245              HOST        = "enterprise"
+246              PORT        = 8561
+247              OLAP_SCHEMA = "SASApp - OLAP Schema";
+248        
+249           /* Rolling month sets */
+250           DEFINE SET '[Transaction Summary].[Latest Month]' as 'Tail([Transaction Month Year].[Transaction Month Year].[Month
+250      ! Year].members,1)';
+251           DEFINE SET '[Transaction Summary].[Rolling 3 Months]' as 'Tail([Transaction Month Year].[Transaction Month
+251      ! Year].[Month Year].members,3)';
+252           DEFINE SET '[Transaction Summary].[Rolling 6 Months]' as 'Tail([Transaction Month Year].[Transaction Month
+252      ! Year].[Month Year].members,6)';
+253           DEFINE SET '[Transaction Summary].[Rolling 12 Months]' as 'Tail([Transaction Month Year].[Transaction Month
+253      ! Year].[Month Year].members,12)';
+254           DEFINE SET '[Transaction Summary].[Rolling 13 Months]' as 'Tail([Transaction Month Year].[Transaction Month
+254      ! Year].[Month Year].members,13)';
+255           DEFINE SET '[Transaction Summary].[Rolling 18 Months]' as 'Tail([Transaction Month Year].[Transaction Month
+255      ! Year].[Month Year].members,18)';
+256           DEFINE SET '[Transaction Summary].[Rolling 24 Months]' as 'Tail([Transaction Month Year].[Transaction Month
+256      ! Year].[Month Year].members,24)';
+257        
+258           /* Rolling time aggregate members */
+259           DEFINE MEMBER '[Transaction Summary].[Transaction Month Year].[All Years].[Rolling 3 Months]' as 'Aggregate(
+259      ! Tail([Transaction Month Year].[Transaction Month Year].[Month Year].members,3 ))';
+260           DEFINE MEMBER '[Transaction Summary].[Transaction Month Year].[All Years].[Rolling 6 Months]' as 'Aggregate(
+260      ! Tail([Transaction Month Year].[Transaction Month Year].[Month Year].members,6 ))';
+261           DEFINE MEMBER '[Transaction Summary].[Transaction Month Year].[All Years].[Rolling 12 Months]' as 'Aggregate(
+261      ! Tail([Transaction Month Year].[Transaction Month Year].[Month Year].members,12 ))';
+262           DEFINE MEMBER '[Transaction Summary].[Transaction Month Year].[All Years].[Rolling 18 Months]' as 'Aggregate(
+262      ! Tail([Transaction Month Year].[Transaction Month Year].[Month Year].members,18 ))';
+263           DEFINE MEMBER '[Transaction Summary].[Transaction Month Year].[All Years].[Rolling 24 Months]' as 'Aggregate(
+263      ! Tail([Transaction Month Year].[Transaction Month Year].[Month Year].members,24 ))';
+264        
+16                                                         The SAS System                             18:23 Thursday, March 28, 2013
+
+265           DEFINE SET '[Transaction Summary].[Rolling 3 Months Plus Summary]' as '
+266              {
+267                 [Rolling 3 Months],
+268                 [Transaction Month Year].[All Years].[Rolling 3 Months],
+269                 [Transaction Month Year].[All Years].[Rolling 6 Months],
+270                 [Transaction Month Year].[All Years].[Rolling 12 Months],
+271                 [Transaction Month Year].[All Years].[Rolling 18 Months]
+272              }';
+273        
+274           DEFINE SET '[Transaction Summary].[Rolling 6 Months Plus Summary]' as '
+275              {
+276                 [Rolling 6 Months],
+277                 [Transaction Month Year].[All Years].[Rolling 3 Months],
+278                 [Transaction Month Year].[All Years].[Rolling 6 Months],
+279                 [Transaction Month Year].[All Years].[Rolling 12 Months],
+280                 [Transaction Month Year].[All Years].[Rolling 18 Months]
+281              }';
+282        
+283           DEFINE SET '[Transaction Summary].[Rolling 12 Months Plus Summary]' as '
+284              {
+285                 [Rolling 12 Months],
+286                 [Transaction Month Year].[All Years].[Rolling 3 Months],
+287                 [Transaction Month Year].[All Years].[Rolling 6 Months],
+288                 [Transaction Month Year].[All Years].[Rolling 12 Months],
+289                 [Transaction Month Year].[All Years].[Rolling 18 Months]
+290              }';
+291        
+292           DEFINE SET '[Transaction Summary].[Summary Month Totals]' as '
+293              {
+294                 [Transaction Month Year].[All Years].[Rolling 3 Months],
+295                 [Transaction Month Year].[All Years].[Rolling 6 Months],
+296                 [Transaction Month Year].[All Years].[Rolling 12 Months],
+297                 [Transaction Month Year].[All Years].[Rolling 18 Months]
+298              }';
+299        
+300           /**************** Peer Comparison using NAICS codes *********************/
+301           DEFINE MEMBER '[Transaction Summary].[Measures].[AVG NAICS Amt]' AS
+302            '([Party Account].[NAICS Code > Party > Account].CurrentMember.Parent,[Measures].[AVG Transaction Amount]),
+302      ! SOLVE_ORDER=0, format_string="dollar20.2"';
+303            /** TODO: add MDX to be dynamic on multiple hierarchies for better analysis */
+304        
+305           DEFINE MEMBER '[Transaction Summary].[Measures].[Diff NAICS AVG Amt]' AS
+306            '([Measures].[AVG Transaction Amount] - [Measures].[AVG NAICS Amt]), SOLVE_ORDER=1, format_string="dollar20.2"';
+307        
+308           DEFINE MEMBER '[Transaction Summary].[Measures].[%Diff NAICS AVG Trans Amt]' AS
+309            '[Measures].[Diff NAICS AVG Amt] / [Measures].[AVG NAICS Amt], SOLVE_ORDER=2, format_string="NLPCT8.2"';
+310        
+311           DEFINE SET '[Transaction Summary].[Party Comparison by NAICS]' as '[Party Account].[NAICS Code > Party >
+311      ! Account].[Party Number].Members';
+312           /** TODO: add MDX to remove parties with no NAICS code (individuals). Use the EXCEPT() function or minus operator */
+313        
+314           /***************** Peer Comparison using Party Type ******************/
+315           DEFINE MEMBER '[Transaction Summary].[Measures].[AVG Party Type Amt]' AS
+316            '([Party Account].[Party Type > Party > Account].CurrentMember.Parent,[Measures].[AVG Transaction Amount]),
+316      ! SOLVE_ORDER=0, format_string="dollar20.2"';
+317        
+318           DEFINE MEMBER '[Transaction Summary].[Measures].[Diff Party Type AVG Amt]' AS
+319            '([Measures].[AVG Transaction Amount] - [Measures].[AVG Party Type Amt]), SOLVE_ORDER=1, format_string="dollar20.2"';
+17                                                         The SAS System                             18:23 Thursday, March 28, 2013
+
+320        
+321           DEFINE MEMBER '[Transaction Summary].[Measures].[%Diff Party Type AVG Trans Amt]' AS
+322            '[Measures].[Diff Party Type AVG Amt] / [Measures].[AVG Party Type Amt], SOLVE_ORDER=2, format_string="NLPCT8.2"';
+323        
+324           DEFINE SET '[Transaction Summary].[Party Comparison by Type]' as '[Party Account].[Party Type > Party >
+324      ! Account].[Party Number].Members';
+325        
+326           /* Rolling Averages */
+327           DEFINE MEMBER '[Transaction Summary].[Measures].[AVG Trans Amt 3M Rolling]' AS
+328                'Avg(LastPeriods(3,[Transaction Month Year].[Transaction Month Year].CurrentMember),[Measures].[AVG Transaction
+328      ! Amount])';
+329           DEFINE MEMBER '[Transaction Summary].[Measures].[AVG Trans Amt 6M Rolling]' AS
+330                'Avg(LastPeriods(6,[Transaction Month Year].[Transaction Month Year].CurrentMember),[Measures].[AVG Transaction
+330      ! Amount])';
+331           DEFINE MEMBER '[Transaction Summary].[Measures].[AVG Trans Amt 12M Rolling]' AS
+332                'Avg(LastPeriods(12,[Transaction Month Year].[Transaction Month Year].CurrentMember),[Measures].[AVG Transaction
+332      ! Amount])';
+333        
+334           /* Percent Change */
+335           DEFINE MEMBER '[Transaction Summary].[Measures].[%Change Trans Amt]' AS
+336             '(([Transaction Month Year].[Transaction Month Year].CurrentMember,[Measures].[Transaction Amount])-([Transaction
+336      ! Month Year].[Transaction Month Year].CurrentMember.PrevMember,[Measures].[Transaction Amount]))/([Transaction Month
+336      ! Year].[Transaction Month Year].CurrentMember.PrevMember,[Measures].[Transaction Amount]), format_string="percent14.2"';
+337           DEFINE MEMBER '[Transaction Summary].[Measures].[%Change Trans Count]' AS
+338             '(([Transaction Month Year].[Transaction Month Year].CurrentMember,[Measures].[Transaction Count])-([Transaction
+338      ! Month Year].[Transaction Month Year].CurrentMember.PrevMember,[Measures].[Transaction Count]))/([Transaction Month
+338      ! Year].[Transaction Month Year].CurrentMember.PrevMember,[Measures].[Transaction Count]), format_string="percent14.2"';
+339        
+340        run;
+
+NOTE: Processing of all DEFINE and UNDEFINE statements is completed.
+NOTE: All DEFINE and UNDEFINE statements processed successfully.
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           27.75 seconds
+      user cpu time       11.55 seconds
+      system cpu time     2.12 seconds
+      memory              820476.96k
+      OS Memory           839404.00k
+      Timestamp           03/30/2013 03:25:11 AM
+      Page Faults                       132
+      Page Reclaims                     197043
+      Page Swaps                        0
+      Voluntary Context Switches        4171
+      Involuntary Context Switches      2520
+      Block Input Operations            1133984
+      Block Output Operations           152
+      
+
+341        
+342        %put ******* Build Performance Aggregates *******;
+******* Build Performance Aggregates *******
+343        /* Base level aggregates */
+344        proc olap
+345           CUBE= "&cube"
+346           CONCURRENT             = 4
+347           ASYNCINDEXLIMIT        = 2
+348           MAXTHREADS             = 2
+349           TEST_LEVEL             = 26;
+18                                                         The SAS System                             18:23 Thursday, March 28, 2013
+
+350        
+351           METASVR
+352              HOST        = "enterprise"
+353              PORT        = 8561
+354              OLAP_SCHEMA = "SASApp - OLAP Schema";
+355        
+356           AGGREGATION 'Month Year'n TransactionType TransactionCategory 'Party Type'n NAICS 'Party Number'n 'Account Number'n
+357              / NAME      = 'Base Reporting 1';
+358           AGGREGATION 'Month Year'n  State County City 'Party Type'n NAICS 'Party Number'n 'Account Number'n
+359              / NAME      = 'Base Reporting 2';
+360        
+361        run;
+
+TSTLVL: Update enabled version of 9.2.
+NOTE: Workpath: "/projects/saswork/SAS_workB88F00000BD9_enterprise/SAS_workBA8E00000BD9_enterprise"
+IN PROGRESS: Subaggregation creation
+(TSTLVL TIMING)Begin time for making subaggregations: :3H:25M:23S
+NOTE: Memory to make aggregations set to 15360 MB.
+NOTE: Setting number of aggregations to create in parallel equal to 4.
+NOTE: Setting the limit on the number of indexes that may be created asynchronously to 2.
+ERROR: The disk is full or the quota has been exceeded.
+ERROR: The disk is full or the quota has been exceeded.
+WARNING: The path /projects/SGF2013/cubes/Transaction Summary is full or the quota has been exceeded
+WARNING: The path /projects/SGF2013/cubes/Transaction Summary is full or the quota has been exceeded
+ERROR: dawritp: Write failed: File=/projects/SGF2013/cubes/Transaction Summary/$7985928.dpf.000168db.95.1.spds9 Reason=The table or 
+an index was not created because of insufficient disk space errno=-2134906863
+ERROR: Error writing data to member ag0001r0. Reason=The table or an index was not created because of insufficient disk space
+ERROR: The disk is full or the quota has been exceeded.
+WARNING: The path /projects/SGF2013/cubes/Transaction Summary is full or the quota has been exceeded
+ERROR: dawritp: Write failed: File=/projects/SGF2013/cubes/Transaction Summary/$7985929.dpf.000168db.100.1.spds9 Reason=The table 
+or an index was not created because of insufficient disk space errno=-2134906863
+ERROR: Error writing data to member ag0002r0. Reason=The table or an index was not created because of insufficient disk space
+ERROR: The table or an index was not created because of insufficient disk space
+ERROR: The table or an index was not created because of insufficient disk space
+ERROR: The table or an index was not created because of insufficient disk space
+Assertion failed: /sas/wky/mva-v930m2/tkspde/src/hptunnel.c/4810
+ERROR: An append operation was still active at close time
+ERROR: hpoepla: plstop failed: Member=ag0002r0 Reason=The table or an index was not created because of insufficient disk space
+ERROR: Unable to terminate an append operation
+ERROR: Internal software error detected
+ERROR: An SPD Engine aggregate table close failure.
+ERROR: Rows cannot be appended to an SPD Engine aggregate.
+ERROR: The table or an index was not created because of insufficient disk space
+Assertion failed: /sas/wky/mva-v930m2/tkspde/src/hptunnel.c/4810
+ERROR: An append operation was still active at close time
+ERROR: hpoepla: plstop failed: Member=ag0001r0 Reason=The table or an index was not created because of insufficient disk space
+ERROR: Unable to terminate an append operation
+ERROR: Internal software error detected
+ERROR: An SPD Engine aggregate table close failure.
+ERROR: Rows cannot be appended to an SPD Engine aggregate.
+NOTE: Processing of all cube aggregations is completed.
+(TSTLVL TIMING)End time for making subaggregations: :6H:47M:60S
+COMPLETED:   Subaggregation creation
+(TSTLVL TIMING) Clocktime  : 12156.7995 sec
+(TSTLVL TIMING) Systime    : 2728.0600 sec
+(TSTLVL TIMING) CPUtime    : 15021.9700 sec
+
+ERROR: A failure occurred as a result of a problem in creating cube aggregations.
+19                                                         The SAS System                             18:23 Thursday, March 28, 2013
+
+ERROR: New aggregations cannot be created for the existing cube. All AGGREGATION statements will be ignored. 
+
+ERROR: An error was encountered while deleting or adding aggregations for the "Transaction Summary" cube.
+WARNING: No aggregations have been added to or deleted from the "Transaction Summary" cube.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           3:22:48.26
+      user cpu time       4:10:22.05
+      system cpu time     45:37.95
+      memory              4160722.65k
+      OS Memory           4180000.00k
+      Timestamp           03/30/2013 06:47:59 AM
+      Page Faults                       263
+      Page Reclaims                     93066822
+      Page Swaps                        0
+      Voluntary Context Switches        16412588
+      Involuntary Context Switches      1403383
+      Block Input Operations            1102991504
+      Block Output Operations           653352520
+      
+362        /* Mid level aggregates */
+
+
+363        proc olap
+364           CUBE= "&cube"
+365           CONCURRENT             = 4
+366           ASYNCINDEXLIMIT        = 2
+367           MAXTHREADS             = 2
+368           TEST_LEVEL             = 26;
+369        
+370           METASVR
+371              HOST        = "enterprise"
+372              PORT        = 8561
+373              OLAP_SCHEMA = "SASApp - OLAP Schema";
+374        
+375           AGGREGATION 'Month Year'n 'Party Type'n NAICS 'Party Number'n 'Account Number'n
+376              / NAME      = 'Month Year Reporting 1';
+377           AGGREGATION 'Month Year'n State County City
+378              / NAME      = 'Month Year Reporting 2';
+379           AGGREGATION 'Month Year'n State
+380              / NAME      = 'Month Year Reporting 3';
+381           AGGREGATION 'Month Year'n TransactionType TransactionCategory
+382              / NAME      = 'Month Year Reporting 4';
+383           AGGREGATION 'Month Year'n TransactionType TransactionCategory State County City
+384              / NAME      = 'Month Year Reporting 5';
+385           AGGREGATION 'Month Year'n NAICS
+386              / NAME      = 'Month Year Reporting 6';
+387           AGGREGATION 'Month Year'n NAICS 'Party Number'n
+388              / NAME      = 'Month Year Reporting 7';
+389           AGGREGATION 'Month Year'n 'Party Type'n
+390              / NAME      = 'Month Year Reporting 8';
+391           AGGREGATION 'Month Year'n 'Party Type'n NAICS
+392              / NAME      = 'Month Year Reporting 9';
+393           AGGREGATION 'Month Year'n NAICS 'Party Type'n 'Party Number'n
+394              /  NAME     = 'Month Year Reporting 10';
+395           AGGREGATION 'Month Year'n 'Account Number'n
+396              / NAME      = 'Month Year Reporting 11';
+20                                                         The SAS System                             18:23 Thursday, March 28, 2013
+
+397        
+398        run;
+
+TSTLVL: Update enabled version of 9.2.
+NOTE: Workpath: "/projects/saswork/SAS_workB88F00000BD9_enterprise/SAS_workBA8E00000BD9_enterprise"
+IN PROGRESS: Subaggregation creation
+(TSTLVL TIMING)Begin time for making subaggregations: :6H:48M:13S
+NOTE: Memory to make aggregations set to 15360 MB.
+NOTE: Setting number of aggregations to create in parallel equal to 4.
+NOTE: Setting the limit on the number of indexes that may be created asynchronously to 2.
+NOTE: Processing of all cube aggregations is completed.
+(TSTLVL TIMING)End time for making subaggregations: :9H:33M:6S
+COMPLETED:   Subaggregation creation
+(TSTLVL TIMING) Clocktime  : 9892.6446 sec
+(TSTLVL TIMING) Systime    : 1384.2400 sec
+(TSTLVL TIMING) CPUtime    : 10203.4200 sec
+
+NOTE: Aggregation "MONTH YEAR REPORTING 1" was created with 17478631 records.
+NOTE: Aggregation "MONTH YEAR REPORTING 2" was created with 479928 records.
+NOTE: Aggregation "MONTH YEAR REPORTING 3" was created with 936 records.
+NOTE: Aggregation "MONTH YEAR REPORTING 4" was created with 312 records.
+NOTE: Aggregation "MONTH YEAR REPORTING 5" was created with 6239064 records.
+NOTE: Aggregation "MONTH YEAR REPORTING 6" was created with 2448 records.
+NOTE: Aggregation "MONTH YEAR REPORTING 7" was created with 14129842 records.
+NOTE: Aggregation "MONTH YEAR REPORTING 8" was created with 48 records.
+NOTE: Aggregation "MONTH YEAR REPORTING 9" was created with 2448 records.
+NOTE: Aggregation "MONTH YEAR REPORTING 10" was created with 14129842 records.
+NOTE: Aggregation "MONTH YEAR REPORTING 11" was created with 17478631 records.
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           2:45:06.44
+      user cpu time       2:50:03.44
+      system cpu time     23:14.43
+      memory              2881543.57k
+      OS Memory           2903944.00k
+      Timestamp           03/30/2013 09:33:06 AM
+      Page Faults                       203
+      Page Reclaims                     39718777
+      Page Swaps                        0
+      Voluntary Context Switches        5013883
+      Involuntary Context Switches      1626146
+      Block Input Operations            861246872
+      Block Output Operations           261647352
+      
+
+399        /* Top level aggregates */
+400        proc olap
+401           CUBE= "&cube"
+402           CONCURRENT             = 4
+403           ASYNCINDEXLIMIT        = 2
+404           MAXTHREADS             = 2
+405           TEST_LEVEL             = 26;
+406        
+407           METASVR
+408              HOST        = "enterprise"
+409              PORT        = 8561
+410              OLAP_SCHEMA = "SASApp - OLAP Schema";
+411        
+412           AGGREGATION 'Month Year'n
+21                                                         The SAS System                             18:23 Thursday, March 28, 2013
+
+413              / NAME      = 'Top Month Year';
+414           AGGREGATION NAICS
+415              / NAME      = 'NAICS';
+416           AGGREGATION NAICS 'Party Number'n
+417              / NAME      = 'NAICS Party Number';
+418           AGGREGATION State County City
+419              / NAME      = 'State County City';
+420           AGGREGATION 'Party Number'n
+421              /  NAME     = 'Party Number';
+422           AGGREGATION 'Account Number'n
+423              /  NAME     = 'Account Number';
+424           AGGREGATION 'Party Account'n
+425              /  NAME     = 'Party Account';
+426        
+427        run;
+
+TSTLVL: Update enabled version of 9.2.
+NOTE: Workpath: "/projects/saswork/SAS_workB88F00000BD9_enterprise/SAS_workBA8E00000BD9_enterprise"
+ERROR: Level name "PARTY ACCOUNT" used in AGGREGATION statement number 7 PARTY ACCOUNT either does not exist in the cube or it is 
+       not used in the context of a valid hierarchical drill order.
+WARNING: AGGREGATION statement number 7 PARTY ACCOUNT will be ignored. 
+
+IN PROGRESS: Subaggregation creation
+(TSTLVL TIMING)Begin time for making subaggregations: :9H:33M:17S
+NOTE: Memory to make aggregations set to 15360 MB.
+NOTE: Setting number of aggregations to create in parallel equal to 4.
+NOTE: Setting the limit on the number of indexes that may be created asynchronously to 2.
+NOTE: Processing of all cube aggregations is completed.
+(TSTLVL TIMING)End time for making subaggregations: :9H:33M:33S
+COMPLETED:   Subaggregation creation
+(TSTLVL TIMING) Clocktime  : 15.7834 sec
+(TSTLVL TIMING) Systime    : 6.9600 sec
+(TSTLVL TIMING) CPUtime    : 62.0800 sec
+
+NOTE: Aggregation "TOP MONTH YEAR" was created with 24 records.
+NOTE: Aggregation "NAICS" was created with 102 records.
+NOTE: Aggregation "NAICS PARTY NUMBER" was created with 902500 records.
+NOTE: Aggregation "STATE COUNTY CITY" was created with 19997 records.
+NOTE: Aggregation "PARTY NUMBER" was created with 902500 records.
+NOTE: Aggregation "ACCOUNT NUMBER" was created with 1292401 records.
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           26.97 seconds
+      user cpu time       1:02.23
+      system cpu time     17.26 seconds
+      memory              826379.50k
+      OS Memory           849424.00k
+      Timestamp           03/30/2013 09:33:33 AM
+      Page Faults                       43
+      Page Reclaims                     333792
+      Page Swaps                        0
+      Voluntary Context Switches        30167
+      Involuntary Context Switches      11781
+      Block Input Operations            5044456
+      Block Output Operations           5625880
+      
+
+428        
+429        
+22                                                         The SAS System                             18:23 Thursday, March 28, 2013
+
+430        GOPTIONS NOACCESSIBLE;
+431        %LET _CLIENTTASKLABEL=;
+432        %LET _CLIENTPROJECTPATH=;
+433        %LET _CLIENTPROJECTNAME=;
+434        %LET _SASPROGRAMFILE=;
+435        
+436        ;*';*";*/;quit;run;
+437        ODS _ALL_ CLOSE;
+438        
+439        
+440        QUIT; RUN;
+441        

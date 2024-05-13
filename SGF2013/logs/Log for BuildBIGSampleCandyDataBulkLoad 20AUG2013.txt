@@ -1,0 +1,187 @@
+1                                                          The SAS System                              20:09 Monday, August 19, 2013
+
+1          ;*';*";*/;quit;run;
+2          OPTIONS PAGENO=MIN;
+3          %LET _CLIENTTASKLABEL='BuildBIGSampleCandyDataBulkLoad';
+4          %LET _CLIENTPROJECTPATH='';
+5          %LET _CLIENTPROJECTNAME='';
+6          %LET _SASPROGRAMFILE='/projects/SGF2013/programs/BuildBIGSampleCandyDataBulkLoad.sas';
+7          
+8          ODS _ALL_ CLOSE;
+9          OPTIONS DEV=ACTIVEX;
+10         GOPTIONS XPIXELS=0 YPIXELS=0;
+11         FILENAME EGHTML TEMP;
+12         ODS HTML(ID=EGHTML) FILE=EGHTML
+13             ENCODING='utf-8'
+14             STYLE=HtmlBlue
+15             STYLESHEET=(URL="file:///D:/SAS94/SASEnterpriseGuide/6.1/Styles/HtmlBlue.css")
+16             ATTRIBUTES=("CODEBASE"="http://www2.sas.com/codebase/graph/v94/sasgraph.exe#version=9,4")
+17             NOGTITLE
+18             NOGFOOTNOTE
+19             GPATH=&sasworklocation
+20         ;
+NOTE: Writing HTML(EGHTML) Body file: EGHTML
+21         
+22         GOPTIONS ACCESSIBLE;
+23         /**** Generate ~1 billion records of data - do it in 2 runs ****/
+24         data stg_fact_candy_sales (bufsize=4M);
+25           length product_key order_date customer_key units sale_amount 8;
+26         
+27           /* Create random data */
+28           do order_date = '01JAN2005'd to '01JUN2007'd;
+29             do x = 1 to (round(rand("Uniform")*10000)+540000);
+30               product_key = round(rand("Uniform")*15) + 1;
+31               customer_key = round(rand("Uniform")*7) + 1;
+32               units = round(rand("Uniform")*100);
+33               sale_amount = round(rand("Uniform")*1000);
+34               output;
+35             end;
+36           end;
+37           drop x;
+38         run;
+
+NOTE: The data set WORK.STG_FACT_CANDY_SALES has 480630534 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           7:01.78
+      cpu time            6:55.20
+      
+
+39         
+40         /* Add PK */
+41         data stg_fact_candy_sales (bufsize=4M);
+42           order_key = _N_;
+43           set stg_fact_candy_sales;
+44         run;
+
+NOTE: There were 480630534 observations read from the data set WORK.STG_FACT_CANDY_SALES.
+NOTE: The data set WORK.STG_FACT_CANDY_SALES has 480630534 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           6:04.49
+      cpu time            4:29.53
+2                                                          The SAS System                              20:09 Monday, August 19, 2013
+
+      
+
+45         
+46         %errorcheck;
+Current SYSCC = 0
+47         /* Insert into fact table */
+48         proc append base=defiant.fact_candy_sales
+49           ( bulkload=yes
+50             bl_datafile="/tmp/data"
+51             bl_logfile="/tmp/bulkload_log"
+52             BL_LOAD_METHOD=APPEND
+53             BL_DELETE_DATAFILE=NO
+54           )
+55           data=stg_fact_candy_sales;
+56         run;
+
+NOTE: Appending WORK.STG_FACT_CANDY_SALES to DEFIANT.fact_candy_sales.
+NOTE: There were 480630534 observations read from the data set WORK.STG_FACT_CANDY_SALES.
+NOTE: 480630534 observations added.
+NOTE: The data set DEFIANT.fact_candy_sales has . observations and 6 variables.
+
+************** Begin:  PSQL Log File **************
+
+************** End:    PSQL Log File **************
+
+NOTE: 
+**********************************************************************
+ Please look in the PSQL log file for the load results.
+ PSQL Log File location(available only if BL_DELETE_DATAFILE=NO was set) : -- /tmp/bulkload_log --
+ Note: In a Client/Server environment, the Log File is located on the Server. The log file is also echoed in the Server SAS log 
+      file. 
+NOTE: PROCEDURE APPEND used (Total process time):
+      real time           5:48:51.00
+      cpu time            13:43.23
+      
+
+57         
+58         proc sql;
+59           select max(order_key) into :max_key from stg_fact_candy_sales;
+60           drop table stg_fact_candy_sales;
+NOTE: Table WORK.STG_FACT_CANDY_SALES has been dropped.
+61         quit;
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           2:47.36
+      cpu time            2:26.42
+      
+
+62         
+63         %errorcheck;
+Current SYSCC = 0
+64         data stg_fact_candy_sales (bufsize=4M);
+65           length product_key order_date customer_key units sale_amount 8;
+66         
+67           /* Create random data */
+68           do order_date = '01JUN2007'd to '01JUN2010'd;
+69             do x = 1 to (round(rand("Uniform")*10000)+540000);
+70               product_key = round(rand("Uniform")*15) + 1;
+71               customer_key = round(rand("Uniform")*7) + 1;
+3                                                          The SAS System                              20:09 Monday, August 19, 2013
+
+72               units = round(rand("Uniform")*100);
+73               sale_amount = round(rand("Uniform")*1000);
+74               output;
+75             end;
+76           end;
+77           drop x;
+78         run;
+
+NOTE: The data set WORK.STG_FACT_CANDY_SALES has 597766372 observations and 5 variables.
+NOTE: DATA statement used (Total process time):
+      real time           8:52.46
+      cpu time            8:45.26
+      
+
+79         
+80         /* Add PK */
+81         data stg_fact_candy_sales (bufsize=4M);
+82           order_key = &max_key + _N_;
+83           set stg_fact_candy_sales;
+84         run;
+
+NOTE: There were 597766372 observations read from the data set WORK.STG_FACT_CANDY_SALES.
+NOTE: The data set WORK.STG_FACT_CANDY_SALES has 597766372 observations and 6 variables.
+NOTE: DATA statement used (Total process time):
+      real time           8:07.71
+      cpu time            5:33.23
+      
+
+85         
+86         %errorcheck;
+Current SYSCC = 0
+87         /* Insert into fact table */
+88         proc append base=defiant.fact_candy_sales
+89           ( bulkload=yes
+90             bl_datafile="/tmp/data"
+91             bl_logfile="/tmp/bulkload_log"
+92             BL_LOAD_METHOD=APPEND
+93             BL_DELETE_DATAFILE=NO
+94           )
+95           data=stg_fact_candy_sales;
+ERROR: CLI describe error: Out of memory while reading tuples.; No query has been executed with that handle
+96         run;
+
+NOTE: Statements not processed because of errors noted above.
+NOTE: PROCEDURE APPEND used (Total process time):
+      real time           13:37.96
+      cpu time            5:51.51
+      
+NOTE: The SAS System stopped processing this step because of errors.
+97         
+98         
+99         GOPTIONS NOACCESSIBLE;
+100        %LET _CLIENTTASKLABEL=;
+101        %LET _CLIENTPROJECTPATH=;
+102        %LET _CLIENTPROJECTNAME=;
+103        %LET _SASPROGRAMFILE=;
+104        
+105        ;*';*";*/;quit;run;
+4                                                          The SAS System                              20:09 Monday, August 19, 2013
+
+106        ODS _ALL_ CLOSE;
+107        
+108        
+109        QUIT; RUN;
+110        

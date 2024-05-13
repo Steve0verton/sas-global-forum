@@ -1,0 +1,3116 @@
+1                                                          The SAS System                         17:55 Wednesday, December 12, 2012
+
+1          ;*';*";*/;quit;run;
+2          OPTIONS PAGENO=MIN;
+3          %LET _CLIENTTASKLABEL='BuildTransactionSummaryCube';
+4          %LET _CLIENTPROJECTPATH='';
+5          %LET _CLIENTPROJECTNAME='';
+6          %LET _SASPROGRAMFILE='/projects/SGF2013/programs/BigData/BuildTransactionSummaryCube.sas';
+7          
+8          ODS _ALL_ CLOSE;
+9          OPTIONS DEV=ACTIVEX;
+10         GOPTIONS XPIXELS=0 YPIXELS=0;
+11         FILENAME EGHTML TEMP;
+12         ODS HTML(ID=EGHTML) FILE=EGHTML ENCODING='utf-8' STYLE=HtmlBlue
+12       ! STYLESHEET=(URL="file:///C:/SAS/SASEnterpriseGuide/5.1/Styles/HtmlBlue.css")
+12       ! ATTRIBUTES=("CODEBASE"="http://www2.sas.com/codebase/graph/v93/sasgraph.exe#version=9,3") NOGTITLE NOGFOOTNOTE
+12       ! GPATH=&sasworklocation;
+NOTE: Writing HTML(EGHTML) Body file: EGHTML
+13         
+14         GOPTIONS ACCESSIBLE;
+15         /*************************************************************/
+16         /*   Code Written by:                                        */
+17         /*      Stephen Overton  (soverton@overtontechnologies.com)  */
+18         /*                                                           */
+19         /*   Builds a cube for testing and demo purposes using       */
+20         /*   fake transaction data                                   */
+21         /*************************************************************/
+22         LIBNAME postgres ODBC READBUFF=5000 DATASRC=dev SCHEMA=public;
+NOTE: Libref POSTGRES was successfully assigned as follows: 
+      Engine:        ODBC 
+      Physical Name: dev
+23         
+24         %let cube = /Projects/SGF2013/Cubes/Transaction Summary;
+25         
+26         %put ****** DIVIDE source data into segments to load ******;
+****** DIVIDE source data into segments to load ******
+27         proc sql threads;
+28           /* transaction_date is used to segment data to load cube */
+29           create table segments as
+30             select distinct transaction_date from postgres.FACT_TRANSACTIONS order by transaction_date desc;
+NOTE: Table WORK.SEGMENTS created, with 791 rows and 1 columns.
+
+31           /* insert segments into macro list to interate through */
+32           select transaction_date into :segment1 - :segment999999 from segments;
+33           /* get the number of records for counter for loop */
+34           select count(transaction_date) into :segment_count from segments;
+35         quit;
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           22:54.63
+      cpu time            0.57 seconds
+      
+
+36         %put Segments to loop through &segment_count;
+Segments to loop through      791
+37         
+38         %put ****** DEFINE first segment ******;
+****** DEFINE first segment ******
+39         proc sql threads;
+40           create table SGF2013.FACT_TRANSACTIONS_SEGMENT as
+41             select * from postgres.FACT_TRANSACTIONS
+2                                                          The SAS System                         17:55 Wednesday, December 12, 2012
+
+42               where transaction_date = &segment1;
+NOTE: Table SGF2013.FACT_TRANSACTIONS_SEGMENT created, with 2135378 rows and 6 columns.
+
+43         quit;
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           1:41.72
+      cpu time            24.72 seconds
+      
+
+44         
+45         /** Ensure segment tables exist in metadata for OLAP server  **/
+46         libname _temp meta repname="Foundation" library="SGF2013" metaout=data;
+NOTE: Libref _TEMP was successfully assigned as follows: 
+      Engine:        META 
+      Physical Name: /projects/SGF2013/data
+47         proc metalib;
+48           omr (library="SGF2013"
+49           metarepository="Foundation");
+50           select("FACT_TRANSACTIONS_SEGMENT");
+51           update_rule=(delete);
+52           report;
+53         run;
+
+NOTE: A total of 1 tables were analyzed for library "SGF2013".
+NOTE: Metadata for 0 tables was updated.
+NOTE: Metadata for 0 tables was deleted.
+NOTE: Metadata for 0 tables was added.
+NOTE: Metadata for 1 tables matched the data sources.
+NOTE: 0 tables listed in the SELECT or EXCLUDE statement were not found in either the metadata or the data source.
+NOTE: 0 other tables were not processed due to error or UPDATE_RULE.
+NOTE: PROCEDURE METALIB used (Total process time):
+      real time           0.03 seconds
+      cpu time            0.04 seconds
+      
+
+54         libname _temp clear;
+NOTE: Libref _TEMP has been deassigned.
+55         
+56         %put ****** START cube build process ******;
+****** START cube build process ******
+57         proc olap
+58            CUBE                   = "&cube"
+59            DELETE;
+60         
+61            METASVR
+62               HOST        = "vSAS"
+63               PORT        = 8561
+64               OLAP_SCHEMA = "SASApp - OLAP Schema";
+65         
+66         run;
+
+WARNING: The registration for cube "Transaction Summary" was not found on the metadata server.
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+67         
+3                                                          The SAS System                         17:55 Wednesday, December 12, 2012
+
+68         options fullstimer;
+69         options SASTRACE=',,,ds' sastraceloc=saslog nostsuffix;
+70         %let syssumtrace=3;
+71         
+72         proc options group=performance; run;
+
+    SAS (r) Proprietary Software Release 9.3  TS1M2
+
+
+Group=PERFORMANCE
+ ARMAGENT=         ARM Agent to use to collect ARM records
+ ARMLOC=ARMLOG.LOG Identify location where ARM records are to be written
+ ARMSUBSYS=(ARM_NONE)
+                   Enable/Disable ARMing of SAS subsystems
+ BUFNO=1           Number of buffers for each SAS data set
+ BUFSIZE=512       Size of buffer for page of SAS data set
+ CGOPTIMIZE=3      Control code generation optimization
+ CMPMODEL=BOTH     Identify CMP model storage type
+ CMPOPT=(NOEXTRAMATH NOMISSCHECK NOPRECISE NOGUARDCHECK NOGENSYMNAMES NOFUNCDIFFERENCING)
+                   Enable SAS compiler performance optimizations
+ COMPRESS=NO       Specifies whether to compress observations in output SAS data sets
+ CPUCOUNT=4        Number of processors available.
+ NODBIDIRECTEXEC   Do not use SQL optimization with SAS/ACCESS engines
+ DBSLICEPARM=(THREADED_APPS, 2)
+                   Alter DBMS engine threaded read behavior by expanding or disallowing threaded reads.
+ MAXSEGRATIO=75    SPD Engine pre-evaluation phase time ratio
+ MEXECSIZE=65536   Maximum size for a macro to execute in memory
+ MINPARTSIZE=16777216
+                   Minimum partition size when creating SPD Engine files
+ SORTSIZE=11811160064
+                   Size parameter for sort
+ SPDEINDEXSORTSIZE=33554432
+                   Identifies memory to be used for SPD Engine asynchronous index create or append
+ SPDEMAXTHREADS=2  Maximum number of threads for SPD Engine processing
+ SPDESORTSIZE=33554432
+                   Memory for SPD Engine sort operations
+ SPDEUTILLOC=      Location where SPD Engine temporary utility files are created
+ SPDEWHEVAL=COST   Specifies SPD Engine WHERE statement evaluation strategy
+ SQLGENERATION=(NONE DBMS='TERADATA DB2 ORACLE NETEZZA ASTER GREENPLM')
+                   Identify when to perform SQL generation for SAS Procedure input processing
+ SQLREDUCEPUT=DBMS PROC SQL optimization for put() functions
+ SQLREDUCEPUTOBS=0 PROC SQL optimization for put() functions observation threshold
+ SQLREDUCEPUTVALUES=0
+                   PROC SQL optimization for put() functions value threshold
+ THREADS           Threads are available for use with features of the SAS System that support threading
+ MEMSIZE=13958643712
+                   Specifies the limit on the total amount of memory to be used by the SAS System
+NOTE: PROCEDURE OPTIONS used (Total process time):
+      real time           0.00 seconds
+      user cpu time       0.00 seconds
+      system cpu time     0.00 seconds
+      memory              22.25k
+      OS Memory           13092.00k
+      Timestamp           12/12/2012 06:20:35 PM
+      Page Faults                       0
+      Page Reclaims                     14
+      Page Swaps                        0
+      Voluntary Context Switches        3
+4                                                          The SAS System                         17:55 Wednesday, December 12, 2012
+
+      Involuntary Context Switches      0
+      Block Input Operations            624
+      Block Output Operations           0
+      
+
+73         
+74         proc olap
+75            CUBE                   = "&cube"
+76            PATH                   = '/projects/SGF2013/cubes'
+77            DESCRIPTION            = 'Transaction Summary demo cube for SGF2013'
+78            FACT                   = SGF2013.FACT_TRANSACTIONS_SEGMENT
+79            CONCURRENT             = 4
+80            ASYNCINDEXLIMIT        = 2
+81            MAXTHREADS             = 2
+82            TEST_LEVEL             = 26
+83         ;
+84         
+85            METASVR
+86               HOST        = "vSAS"
+87               PORT        = 8561
+88               OLAP_SCHEMA = "SASApp - OLAP Schema";
+89         
+90             DIMENSION Time
+91               CAPTION          = 'Time'
+92               TYPE             = TIME
+93               SORT_ORDER       = ASCENDING
+94               HIERARCHIES      = ( YMD YQMD MonthYear );
+95         
+96               HIERARCHY YMD
+97                  ALL_MEMBER = 'All Years'
+98                  CAPTION    = 'Year > Month > Date'
+99                  LEVELS     = ( Year Month Date )
+100                 DEFAULT;
+101        
+102              HIERARCHY YQMD
+103                 ALL_MEMBER = 'All Years'
+104                 CAPTION    = 'Year > Qtr > Month > Date'
+105                 LEVELS     = ( Year Quarter Month Date );
+106        
+107              HIERARCHY MonthYear
+108                 ALL_MEMBER = 'All Years'
+109                 CAPTION    = 'Month Year'
+110                 LEVELS     = ( 'Month Year'n );
+111        
+112              LEVEL Year
+113                 COLUMN         =  transaction_date
+114                 FORMAT         =  YEAR4.
+115                 TYPE           =  YEAR
+116                 CAPTION        =  'Year'
+117                 SORT_ORDER     =  ASCENDING;
+118        
+119              LEVEL Month
+120                 COLUMN         =  transaction_date
+121                 FORMAT         =  MONNAME3.
+122                 TYPE           =  MONTHS
+123                 CAPTION        =  'Month'
+124                 SORT_ORDER     =  ASCENDING;
+125        
+5                                                          The SAS System                         17:55 Wednesday, December 12, 2012
+
+126              LEVEL Date
+127                 COLUMN         = transaction_date
+128                 FORMAT         =  mmddyy10.
+129                 TYPE           =  DAYS
+130                 CAPTION        =  'Transaction Date'
+131                 SORT_ORDER     =  ASCENDING;
+132        
+133              LEVEL Quarter
+134                 COLUMN         =  transaction_date
+135                 FORMAT         =  QTR1.
+136                 TYPE           =  QUARTERS
+137                 CAPTION        =  'Quarter'
+138                 SORT_ORDER     =  ASCENDING;
+139        
+140              LEVEL 'Month Year'n
+141                 COLUMN         =  transaction_date
+142                 FORMAT         =  MONYY7.
+143                 TYPE           =  MONTHS
+144                 CAPTION        =  'Month Year'
+145                 SORT_ORDER     =  ASCENDING;
+146        
+147           DIMENSION Location
+ 
+ODBC_1: Prepared: on connection 0
+SELECT * FROM public.DIM_LOCATION
+ 
+148              CAPTION          = 'Location'
+149              SORT_ORDER       = ASCENDING
+150              DIMTBL           = postgres.DIM_LOCATION
+151              DIMKEY           = location_key
+152              FACTKEY          = location_key
+153              HIERARCHIES      = ( Location );
+154        
+155              HIERARCHY Location
+156                 ALL_MEMBER = 'All States'
+157                 CAPTION    = 'State > City'
+158                 LEVELS     = ( State County City )
+159                 DEFAULT;
+160        
+161              LEVEL State
+162                 CAPTION        =  'State'
+163                 SORT_ORDER     =  ASCENDING;
+164        
+165              LEVEL County
+166                 CAPTION        =  'County'
+167                 SORT_ORDER     =  ASCENDING;
+168        
+169              LEVEL City
+170                 CAPTION        =  'City'
+171                 SORT_ORDER     =  ASCENDING;
+172        
+173           DIMENSION 'Transaction Type'n
+ 
+ODBC_2: Prepared: on connection 0
+SELECT * FROM public.DIM_TRANSACTION_TYPE
+ 
+174              CAPTION          = 'Transaction Type'
+175              SORT_ORDER       = ASCENDING
+6                                                          The SAS System                         17:55 Wednesday, December 12, 2012
+
+176              DIMTBL           = postgres.DIM_TRANSACTION_TYPE
+177              DIMKEY           = transaction_type_key
+178              FACTKEY          = transaction_type_key
+179              HIERARCHIES      = ( 'Transaction Type'n );
+180        
+181              HIERARCHY  'Transaction Type'n
+182                 ALL_MEMBER = 'All Transaction Types'
+183                 CAPTION    = 'Type > Category'
+184                 LEVELS     = ( TransactionType TransactionCategory )
+185                 DEFAULT;
+186        
+187              LEVEL TransactionType
+188                 COLUMN         = transaction_type
+189                 CAPTION        =  'Type'
+190                 SORT_ORDER     =  ASCENDING;
+191        
+192              LEVEL TransactionCategory
+193                 COLUMN         = transaction_category
+194                 CAPTION        =  'Category'
+195                 SORT_ORDER     =  ASCENDING;
+196        
+197           DIMENSION 'Party Account'n
+ 
+ODBC_3: Prepared: on connection 0
+SELECT * FROM public.DIM_PARTY_ACCOUNT
+ 
+198              CAPTION          = 'Party Account'
+199              SORT_ORDER       = ASCENDING
+200              DIMTBL           = postgres.DIM_PARTY_ACCOUNT
+201              DIMKEY           = party_account_key
+202              FACTKEY          = party_account_key
+203              HIERARCHIES      = ( 'Party Type > Party > Account'n
+204                                   'NAICS Code > Party > Account'n
+205                                   'Party > Account'n
+206                                   'Type > NAICS > Party > Account'n
+207                                    AccountNumber );
+208        
+209              HIERARCHY  'Party Type > Party > Account'n
+210                 ALL_MEMBER = 'All Party Types'
+211                 CAPTION    = 'Party Type > Party Number > Account Number'
+212                 LEVELS     = ( 'Party Type'n 'Party Number'n 'Account Number'n )
+213                 DEFAULT;
+214        
+215              HIERARCHY  'NAICS Code > Party > Account'n
+216                 ALL_MEMBER = 'All NAICS Codes'
+217                 CAPTION    = 'NAICS Code > Party Number > Account Number'
+218                 LEVELS     = ( NAICS 'Party Number'n 'Account Number'n );
+219        
+220              HIERARCHY  'Party > Account'n
+221                 ALL_MEMBER = 'All Party Numbers'
+222                 CAPTION    = 'Party Number > Account Number'
+223                 LEVELS     = ( 'Party Number'n 'Account Number'n );
+224        
+225              HIERARCHY  'Type > NAICS > Party > Account'n
+226                 ALL_MEMBER = 'All Party Types'
+227                 CAPTION    = 'Party Type > NAICS Code > Party Number > Account Number'
+228                 LEVELS     = ( 'Party Type'n NAICS 'Party Number'n 'Account Number'n );
+229        
+7                                                          The SAS System                         17:55 Wednesday, December 12, 2012
+
+230              HIERARCHY  AccountNumber
+231                 ALL_MEMBER = 'All Account Numbers'
+232                 CAPTION    = 'Account Number'
+233                 LEVELS     = ( 'Account Number'n );
+234        
+235              LEVEL 'Party Number'n
+236                 COLUMN         = party_number
+237                 CAPTION        =  'Party Number'
+238                 SORT_ORDER     =  ASCENDING;
+239        
+240              LEVEL 'Account Number'n
+241                 COLUMN         = account_number
+242                 CAPTION        =  'Account Number'
+243                 SORT_ORDER     =  ASCENDING;
+244        
+245              LEVEL 'Party Type'n
+246                 COLUMN         = party_type
+247                 CAPTION        =  'Party Type'
+248                 SORT_ORDER     =  ASCENDING;
+249        
+250              LEVEL NAICS
+251                 COLUMN         = naics_code
+252                 CAPTION        =  'NAICS Code'
+253                 SORT_ORDER     =  ASCENDING;
+254        
+255           PROPERTY 'Party Name'n
+256              level='Party Number'n
+257              column=party_name
+258              hierarchy=('Party Type > Party > Account'n
+259                         'NAICS Code > Party > Account'n
+260                         'Party > Account'n
+261                         'Type > NAICS > Party > Account'n )
+262              caption='Party Name'
+263              description='Party Name'
+264           ;
+265        
+266           PROPERTY 'Account Name'n
+267              level='Account Number'n
+268              column=account_name
+269              hierarchy=('Party Type > Party > Account'n
+270                         'NAICS Code > Party > Account'n
+271                         'Party > Account'n
+272                         'Type > NAICS > Party > Account'n AccountNumber )
+273              caption='Account Name'
+274              description='Account Name'
+275           ;
+276        
+277           PROPERTY 'Account Open Date'n
+278              level='Account Number'n
+279              column=account_open_date
+280              hierarchy=('Party Type > Party > Account'n
+281                         'NAICS Code > Party > Account'n
+282                         'Party > Account'n
+283                         'Type > NAICS > Party > Account'n AccountNumber)
+284              caption='Account Open Date'
+285              description='Account Open Date'
+286           ;
+287        
+8                                                          The SAS System                         17:55 Wednesday, December 12, 2012
+
+288           MEASURE 'Transaction Amount'n
+289              STAT        = SUM
+290              COLUMN      = transaction_amount
+291              CAPTION     = 'Transaction Amount'
+292              FORMAT      = DOLLAR22.0
+293              DEFAULT;
+294        
+295           MEASURE 'AVG Transaction'n
+296              STAT        = AVG
+297              COLUMN      = transaction_amount
+298              CAPTION     = 'Transaction Amount'
+299              FORMAT      = DOLLAR22.2;
+300        
+301           MEASURE 'Transaction Count'n
+302              STAT        = N
+303              COLUMN      = transaction_key
+304              CAPTION     = 'Transaction Count'
+305              FORMAT      = comma22.;
+306        
+307        run;
+
+TSTLVL: Update enabled version of 9.2.
+IN PROGRESS: Initial connection with metadata server
+COMPLETED:   Initial connection with metadata server
+
+IN PROGRESS: Initialize cube build
+(TSTLVL TIMING)Begin time for cube building: 18H:20M:37S
+NOTE: Workpath: "/saswork/SAS_workC34F0000130E_vSAS/SAS_work66920000130E_vSAS"
+WARNING: The OLAP Procedure does not support the NOFMTERR system option.
+NOTE: The property SAS_MEMBER_DATE was created for level "Year".
+NOTE: The property SAS_MEMBER_DATE was created for level "Month".
+NOTE: The property SAS_MEMBER_DATE was created for level "Date".
+NOTE: The property SAS_MEMBER_DATE was created for level "Quarter".
+NOTE: The property SAS_MEMBER_DATE was created for level "Month Year".
+NOTE: TEST_LEVEL (16) is set.
+MEMSIZE     = 13631488 KB
+REALMEMSIZE = 11534336 KB
+SUMSIZE     = 11534336 KB
+NOTE: MEMSIZE/REALMEMSIZE settings will determine memory usage for initial summarization.
+NOTE: MEMSIZE/REALMEMSIZE settings will determine memory usage for initial summarization.
+NOTE: MEMSIZE/REALMEMSIZE settings will determine memory usage for initial summarization.
+NOTE: MEMSIZE/REALMEMSIZE settings will determine memory usage for initial summarization.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+COMPLETED:   Initialize cube build
+
+IN PROGRESS: Initial summarization of input data
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+COMPLETED:   Initial summarization of input data
+
+NOTE: Available memory for 'hierarchy' stage: 10855074 KB
+NOTE: The files to share memory are 6.
+NOTE: Setting memory to 1356884 kb where MEMSIZE and/or REALMEMSIZE set
+
+9                                                          The SAS System                         17:55 Wednesday, December 12, 2012
+
+
+NOTE: Memory used for star schema index processing determined by MEMSIZE/REALMEMSIZE and is 1356884 kb
+Begin time for getting captions for 'YMD' hierarchy: 
+(TSTLVL TIMING)Getting captions: 18H:20M:42S
+IN PROGRESS: Metadata creation for hierarchy "YMD"
+NOTE: Cardinality for levels in the "YMD" hierarchy (test_lvl=8):
+   Year: 1 
+   Month: 1 
+   Date: 1 
+
+
+COMPLETED:   Metadata creation for hierarchy "YMD"
+
+Time to create member caption metadata for 'YMD' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0001 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+Begin time for getting captions for 'YQMD' hierarchy: 
+(TSTLVL TIMING)Getting captions: 18H:20M:42S
+IN PROGRESS: Metadata creation for hierarchy "YQMD"
+NOTE: Cardinality for levels in the "YQMD" hierarchy (test_lvl=8):
+   Year: 1 
+   Quarter: 1 
+   Month: 1 
+   Date: 1 
+
+
+COMPLETED:   Metadata creation for hierarchy "YQMD"
+
+Time to create member caption metadata for 'YQMD' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0000 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+Begin time for getting captions for 'MonthYear' hierarchy: 
+(TSTLVL TIMING)Getting captions: 18H:20M:42S
+IN PROGRESS: Metadata creation for hierarchy "MonthYear"
+NOTE: Cardinality for levels in the "MonthYear" hierarchy (test_lvl=8):
+   Month Year: 1 
+
+
+COMPLETED:   Metadata creation for hierarchy "MonthYear"
+
+Time to create member caption metadata for 'MonthYear' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0000 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 18H:20M:42S
+IN PROGRESS: Member metadata creation for 'YMD' hierarchy
+NOTE: The total number of members in hierarchy is 4.
+Member cardinality  per level in hierarchy:
+Level 1: 1 
+Level 2: 1 
+Level 3: 1 
+COMPLETED: Member metadata creation for 'YMD' hierarchy
+Time to create member metadata for 'YMD' hierarchy:
+10                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+(TSTLVL TIMING) Clocktime  : 0.0002 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 18H:20M:42S
+IN PROGRESS: Member metadata creation for 'YQMD' hierarchy
+NOTE: The total number of members in hierarchy is 5.
+Member cardinality  per level in hierarchy:
+Level 1: 1 
+Level 2: 1 
+Level 3: 1 
+Level 4: 1 
+COMPLETED: Member metadata creation for 'YQMD' hierarchy
+Time to create member metadata for 'YQMD' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0002 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 18H:20M:42S
+IN PROGRESS: Member metadata creation for 'MonthYear' hierarchy
+NOTE: The total number of members in hierarchy is 2.
+Member cardinality  per level in hierarchy:
+Level 1: 1 
+COMPLETED: Member metadata creation for 'MonthYear' hierarchy
+Time to create member metadata for 'MonthYear' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0001 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+IN PROGRESS: Summarizing "Location" dimension table
+ 
+ODBC_4: Prepared: on connection 0
+SELECT  "state", "county", "city", "location_key"  FROM public.DIM_LOCATION 
+ 
+ 
+ODBC_5: Executed: on connection 0
+Prepared statement ODBC_4
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+COMPLETED    Summarizing "Location" dimension table
+
+Time to summarize 'Location' dimension table and make room for it:
+(TSTLVL TIMING) Clocktime  : 0.1190 sec
+(TSTLVL TIMING) Systime    : 0.0200 sec
+(TSTLVL TIMING) CPUtime    : 0.1100 sec
+
+Begin time for getting captions for 'Location' hierarchy: 
+(TSTLVL TIMING)Getting captions: 18H:20M:42S
+IN PROGRESS: Metadata creation for hierarchy "Location"
+NOTE: Cardinality for levels in the "Location" hierarchy (test_lvl=8):
+   State: 39 
+   County: 191 
+11                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+   City: 13844 
+
+
+COMPLETED:   Metadata creation for hierarchy "Location"
+
+Time to create member caption metadata for 'Location' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0451 sec
+(TSTLVL TIMING) Systime    : 0.0100 sec
+(TSTLVL TIMING) CPUtime    : 0.0400 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 18H:20M:42S
+IN PROGRESS: Member metadata creation for 'Location' hierarchy
+NOTE: The total number of members in hierarchy is 22334.
+Member cardinality  per level in hierarchy:
+Level 1: 39 
+Level 2: 2297 
+Level 3: 19997 
+COMPLETED: Member metadata creation for 'Location' hierarchy
+Time to create member metadata for 'Location' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0339 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0300 sec
+
+NOTE: The initial memory limit for classification tables was 10854460K bytes. Actual memory acquired was 4928K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+IN PROGRESS: Summarizing "Transaction Type" dimension table
+ 
+ODBC_6: Prepared: on connection 0
+SELECT  "transaction_type", "transaction_category", "transaction_type_key"  FROM public.DIM_TRANSACTION_TYPE 
+ 
+ 
+ODBC_7: Executed: on connection 0
+Prepared statement ODBC_6
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+COMPLETED    Summarizing "Transaction Type" dimension table
+
+Time to summarize 'Transaction Type' dimension table and make room for it:
+(TSTLVL TIMING) Clocktime  : 0.0089 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0100 sec
+
+Begin time for getting captions for 'Transaction Type' hierarchy: 
+(TSTLVL TIMING)Getting captions: 18H:20M:42S
+IN PROGRESS: Metadata creation for hierarchy "Transaction Type"
+NOTE: Cardinality for levels in the "Transaction Type" hierarchy (test_lvl=8):
+   TransactionType: 2 
+   TransactionCategory: 10 
+
+
+COMPLETED:   Metadata creation for hierarchy "Transaction Type"
+
+12                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+Time to create member caption metadata for 'Transaction Type' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0002 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 18H:20M:42S
+IN PROGRESS: Member metadata creation for 'Transaction Type' hierarchy
+NOTE: The total number of members in hierarchy is 16.
+Member cardinality  per level in hierarchy:
+Level 1: 2 
+Level 2: 13 
+COMPLETED: Member metadata creation for 'Transaction Type' hierarchy
+Time to create member metadata for 'Transaction Type' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0003 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+NOTE: The initial memory limit for classification tables was 10836284K bytes. Actual memory acquired was 128K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+IN PROGRESS: Summarizing "Party Account" dimension table
+ 
+ODBC_8: Prepared: on connection 0
+SELECT  "party_type", "party_number", "account_number", "naics_code", "party_name", "account_name", "account_open_date", 
+"party_account_key"  FROM public.DIM_PARTY_ACCOUNT 
+ 
+ 
+ODBC_9: Executed: on connection 0
+Prepared statement ODBC_8
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+COMPLETED    Summarizing "Party Account" dimension table
+
+Time to summarize 'Party Account' dimension table and make room for it:
+(TSTLVL TIMING) Clocktime  : 212.9916 sec
+(TSTLVL TIMING) Systime    : 39.8000 sec
+(TSTLVL TIMING) CPUtime    : 195.2300 sec
+
+Begin time for getting captions for 'Party Type > Party > Account' hierarchy: 
+(TSTLVL TIMING)Getting captions: 18H:24M:15S
+IN PROGRESS: Metadata creation for hierarchy "Party Type > Party > Account"
+NOTE: Cardinality for levels in the "Party Type > Party > Account" hierarchy (test_lvl=8):
+   Party Type: 2 
+   Party Number: 5000000 
+   Account Number: 14998144 
+
+
+COMPLETED:   Metadata creation for hierarchy "Party Type > Party > Account"
+
+Time to create member caption metadata for 'Party Type > Party > Account' hierarchy:
+(TSTLVL TIMING) Clocktime  : 49.6533 sec
+(TSTLVL TIMING) Systime    : 9.4200 sec
+(TSTLVL TIMING) CPUtime    : 30.0700 sec
+13                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+
+Begin time for getting captions for 'NAICS Code > Party > Account' hierarchy: 
+(TSTLVL TIMING)Getting captions: 18H:25M:5S
+IN PROGRESS: Metadata creation for hierarchy "NAICS Code > Party > Account"
+NOTE: Cardinality for levels in the "NAICS Code > Party > Account" hierarchy (test_lvl=8):
+   NAICS: 102 
+   Party Number: 5000000 
+   Account Number: 14998144 
+
+
+COMPLETED:   Metadata creation for hierarchy "NAICS Code > Party > Account"
+
+Time to create member caption metadata for 'NAICS Code > Party > Account' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0004 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+Begin time for getting captions for 'Party > Account' hierarchy: 
+(TSTLVL TIMING)Getting captions: 18H:25M:5S
+IN PROGRESS: Metadata creation for hierarchy "Party > Account"
+NOTE: Cardinality for levels in the "Party > Account" hierarchy (test_lvl=8):
+   Party Number: 5000000 
+   Account Number: 14998144 
+
+
+COMPLETED:   Metadata creation for hierarchy "Party > Account"
+
+Time to create member caption metadata for 'Party > Account' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0000 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+Begin time for getting captions for 'Type > NAICS > Party > Account' hierarchy: 
+(TSTLVL TIMING)Getting captions: 18H:25M:5S
+IN PROGRESS: Metadata creation for hierarchy "Type > NAICS > Party > Account"
+NOTE: Cardinality for levels in the "Type > NAICS > Party > Account" hierarchy (test_lvl=8):
+   Party Type: 2 
+   NAICS: 102 
+   Party Number: 5000000 
+   Account Number: 14998144 
+
+
+COMPLETED:   Metadata creation for hierarchy "Type > NAICS > Party > Account"
+
+Time to create member caption metadata for 'Type > NAICS > Party > Account' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0000 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+Begin time for getting captions for 'AccountNumber' hierarchy: 
+(TSTLVL TIMING)Getting captions: 18H:25M:5S
+IN PROGRESS: Metadata creation for hierarchy "AccountNumber"
+NOTE: Cardinality for levels in the "AccountNumber" hierarchy (test_lvl=8):
+   Account Number: 14998144 
+
+
+COMPLETED:   Metadata creation for hierarchy "AccountNumber"
+
+14                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+Time to create member caption metadata for 'AccountNumber' hierarchy:
+(TSTLVL TIMING) Clocktime  : 0.0000 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 18H:25M:45S
+IN PROGRESS: Member metadata creation for 'Party Type > Party > Account' hierarchy
+NOTE: The total number of members in hierarchy is 19998147.
+Member cardinality  per level in hierarchy:
+Level 1: 2 
+Level 2: 5000000 
+Level 3: 14998144 
+COMPLETED: Member metadata creation for 'Party Type > Party > Account' hierarchy
+Time to create member metadata for 'Party Type > Party > Account' hierarchy:
+(TSTLVL TIMING) Clocktime  : 60.5492 sec
+(TSTLVL TIMING) Systime    : 9.8000 sec
+(TSTLVL TIMING) CPUtime    : 46.6900 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 18H:27M:14S
+IN PROGRESS: Member metadata creation for 'NAICS Code > Party > Account' hierarchy
+NOTE: The total number of members in hierarchy is 19998247.
+Member cardinality  per level in hierarchy:
+Level 1: 102 
+Level 2: 5000000 
+Level 3: 14998144 
+COMPLETED: Member metadata creation for 'NAICS Code > Party > Account' hierarchy
+Time to create member metadata for 'NAICS Code > Party > Account' hierarchy:
+(TSTLVL TIMING) Clocktime  : 79.6013 sec
+(TSTLVL TIMING) Systime    : 12.0200 sec
+(TSTLVL TIMING) CPUtime    : 60.2900 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 18H:28M:54S
+IN PROGRESS: Member metadata creation for 'Party > Account' hierarchy
+NOTE: The total number of members in hierarchy is 19998145.
+Member cardinality  per level in hierarchy:
+Level 1: 5000000 
+Level 2: 14998144 
+COMPLETED: Member metadata creation for 'Party > Account' hierarchy
+Time to create member metadata for 'Party > Account' hierarchy:
+(TSTLVL TIMING) Clocktime  : 59.6056 sec
+(TSTLVL TIMING) Systime    : 11.4500 sec
+(TSTLVL TIMING) CPUtime    : 34.3900 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 18H:30M:26S
+IN PROGRESS: Member metadata creation for 'Type > NAICS > Party > Account' hierarchy
+NOTE: The total number of members in hierarchy is 19998249.
+Member cardinality  per level in hierarchy:
+Level 1: 2 
+Level 2: 102 
+Level 3: 5000000 
+Level 4: 14998144 
+COMPLETED: Member metadata creation for 'Type > NAICS > Party > Account' hierarchy
+Time to create member metadata for 'Type > NAICS > Party > Account' hierarchy:
+(TSTLVL TIMING) Clocktime  : 74.9091 sec
+(TSTLVL TIMING) Systime    : 13.8800 sec
+(TSTLVL TIMING) CPUtime    : 52.1800 sec
+
+(TSTLVL TIMING)Begin creating member metadata for hierarchy: 18H:31M:53S
+15                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+IN PROGRESS: Member metadata creation for 'AccountNumber' hierarchy
+NOTE: The total number of members in hierarchy is 14998145.
+Member cardinality  per level in hierarchy:
+Level 1: 14998144 
+COMPLETED: Member metadata creation for 'AccountNumber' hierarchy
+Time to create member metadata for 'AccountNumber' hierarchy:
+(TSTLVL TIMING) Clocktime  : 17.4650 sec
+(TSTLVL TIMING) Systime    : 2.0200 sec
+(TSTLVL TIMING) CPUtime    : 13.1000 sec
+
+NOTE: The initial memory limit for classification tables was 10835874K bytes. Actual memory acquired was 9486144K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+WARNING: At least one leaf member of a hierarchy is referred to by multiple dimension keys.
+NOTE: Consider using the COMPACT_NWAY option.  Use of this option might result in a reduction in size of the final NWAY.
+IN PROGRESS: Mapping fact table to dimension tables
+(TSTLVL TIMING)Begin time for Mapping fact table to dimension tables: 18H:32M:39S
+Time to map keys for 'Time' dimension to fact table
+(TSTLVL TIMING) Clocktime  : 1670974359.3 sec
+(TSTLVL TIMING) Systime    : 153.3400 sec
+(TSTLVL TIMING) CPUtime    : 532.2500 sec
+
+NOTE: Number of unique dimension keys for table Location: 20000. Number found in fact table: 20000
+(TSTLVL TIMING)Begin time for mapping fact keys to above dimension 18H:32M:39S
+
+FACTMAP: Creating fact key map array for dim: Location
+FACTMAP: Number bytes: 480024
+FACTMAP: Number 128M blocks to allocate: 1
+FACTMAP: Last block size: 480024
+
+Time to map keys for 'Location' dimension to fact table
+(TSTLVL TIMING) Clocktime  : 0.0634 sec
+(TSTLVL TIMING) Systime    : 0.0100 sec
+(TSTLVL TIMING) CPUtime    : 0.0200 sec
+
+NOTE: Number of unique dimension keys for table Transaction Type: 13. Number found in fact table: 13
+(TSTLVL TIMING)Begin time for mapping fact keys to above dimension 18H:32M:39S
+
+FACTMAP: Creating fact key map array for dim: Transaction Type
+FACTMAP: Number bytes: 224
+FACTMAP: Number 128M blocks to allocate: 1
+FACTMAP: Last block size: 224
+
+Time to map keys for 'Transaction Type' dimension to fact table
+(TSTLVL TIMING) Clocktime  : 0.0000 sec
+(TSTLVL TIMING) Systime    : 0.0000 sec
+(TSTLVL TIMING) CPUtime    : 0.0000 sec
+
+NOTE: Number of unique dimension keys for table Party Account: 14998144. Number found in fact table: 404600
+(TSTLVL TIMING)Begin time for mapping fact keys to above dimension 18H:32M:39S
+
+FACTMAP: Creating fact key map array for dim: Party Account
+FACTMAP: Number bytes: 12947232
+FACTMAP: Number 128M blocks to allocate: 1
+FACTMAP: Last block size: 12947232
+
+Time to map keys for 'Party Account' dimension to fact table
+(TSTLVL TIMING) Clocktime  : 0.3368 sec
+(TSTLVL TIMING) Systime    : 0.0600 sec
+16                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+(TSTLVL TIMING) CPUtime    : 0.2800 sec
+
+COMPLETED: Mapping fact table to dimension tables
+Total time to map fact table to dimension tables:
+(TSTLVL TIMING) Clocktime  : 3.0199 sec
+(TSTLVL TIMING) Systime    : 2.0600 sec
+(TSTLVL TIMING) CPUtime    : 0.4700 sec
+
+IN PROGRESS: NWAY creation
+NOTE: Available memory to create aggregations: 10366 MB.
+NOTE: Maximum threads available to create aggregation indices: 2.
+NOTE: Setting the limit on the number of indexes that may be created asynchronously to 2.
+IN PROGRESS: WRITE NWAY TO DISK
+(TSTLVL TIMING)Begin time for writing nway to disk: 18H:32M:43S
+NOTE: The initial memory limit for classification tables was 10894140K bytes. Actual memory acquired was 310912K bytes.
+NOTE: The utility file buffer size selected was 16K bytes.
+COMPLETED: WRITE NWAY TO DISK
+(TSTLVL TIMING)End time for writing nway to disk: 18H:32M:44S
+Time to write nway:
+(TSTLVL TIMING) Clocktime  : 1.1664 sec
+(TSTLVL TIMING) Systime    : 0.4000 sec
+(TSTLVL TIMING) CPUtime    : 1.0500 sec
+
+
+
+IN PROGRESS: NWAY index creation
+(TSTLVL TIMING)Begin time for creating index for nway: 18H:32M:44S
+COMPLETED:   NWAY index creation
+
+Time to create NWAY index: 
+(TSTLVL TIMING) Clocktime  : 12.6681 sec
+(TSTLVL TIMING) Systime    : 2.3800 sec
+(TSTLVL TIMING) CPUtime    : 16.6700 sec
+
+NOTE: Number of NWAY records: 2135362
+COMPLETED:   NWAY creation
+
+IN PROGRESS: Disking cube metadata files
+COMPLETED:   Disking cube metadata files
+
+IN PROGRESS: Cube registration with metadata server
+COMPLETED:   Cube registration with metadata server
+
+IN PROGRESS: Finalizing cube build
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.069007
+Total SQL execution seconds were:                   0.000004
+Total SQL prepare seconds were:                     0.000026
+Total SQL describe seconds were:                    0.222456
+Total seconds used by the ODBC ACCESS engine were   741.078500
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.003723
+Total SQL execution seconds were:                   0.000015
+Total SQL prepare seconds were:                     0.000022
+Total SQL describe seconds were:                    0.015435
+17                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+Total seconds used by the ODBC ACCESS engine were   740.888847
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                     179.557989
+Total SQL execution seconds were:                   0.000004
+Total SQL prepare seconds were:                     0.000021
+Total SQL describe seconds were:                    1.556430
+Total seconds used by the ODBC ACCESS engine were   740.922344
+ 
+COMPLETED:   Finalizing cube build
+
+Total time to build cube:
+(TSTLVL TIMING) Clocktime  : 740.0698 sec
+(TSTLVL TIMING) Systime    : 153.0500 sec
+(TSTLVL TIMING) CPUtime    : 528.6200 sec
+
+(TSTLVL TIMING)Time cube build completed: 18H:32M:57S
+NOTE: Cube "Transaction Summary" was created successfully.
+NOTE: At least one W.D format was too small for the number to be printed. The decimal may be shifted by the "BEST" format.
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           12:21.14
+      user cpu time       8:48.73
+      system cpu time     2:33.58
+      memory              12390036.04k
+      OS Memory           13625240.00k
+      Timestamp           12/12/2012 06:32:56 PM
+      Page Faults                       12531
+      Page Reclaims                     5242823
+      Page Swaps                        0
+      Voluntary Context Switches        543834
+      Involuntary Context Switches      24833
+      Block Input Operations            15161712
+      Block Output Operations           97594760
+      
+
+308        
+309        /*** Macro to iterate through remaining segments and load cube ***/
+310        %macro LoadSegmentsIntoCube;
+311        /* incrementally load cube by updating a view in each step then incrementally adding data to the cube */
+312        %do x=2 %to &segment_count;
+313          /* if no errors (warnings can exist) then proceed */
+314          %if &syserr. eq 0 or &syserr. eq 4 %then %do;
+315        
+316            /* update segmented data */
+317            %put ****** Load next segment into table to incrementally load cube for segment = &&segment&x ******;
+318            proc sql threads;
+319              create table SGF2013.FACT_TRANSACTIONS_SEGMENT as
+320                select * from postgres.FACT_TRANSACTIONS
+321                  where transaction_date = &&segment&x
+322              ;
+323            quit;
+324        
+325            /* Incrementally update cube */
+326            %put ****** LOAD cube for snapshot = &&segment&x ******;
+327            proc olap
+328              CUBE                   = "&cube"
+329              DATA                   = SGF2013.FACT_TRANSACTIONS_SEGMENT
+18                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+330              ADD_DATA
+331              UPDATE_INPLACE
+332              IGNORE_MISSING_DIMKEYS = VERBOSE
+333              ;
+334        
+335            METASVR
+336                HOST        = "vSAS"
+337                PORT        = 8561
+338                OLAP_SCHEMA = "SASApp - OLAP Schema";
+339        
+340              /*** IMPORTANT: Update this list if new dimensions are added ****/
+341              DIMENSION Location UPDATE_DIMENSION = MEMBERS;
+342              DIMENSION Time UPDATE_DIMENSION = MEMBERS;
+343              DIMENSION 'Party Account'n UPDATE_DIMENSION = MEMBERS;
+344              DIMENSION 'Transaction Type'n UPDATE_DIMENSION = MEMBERS;
+345        
+346            run;
+347        
+348            %put ******** Coalesce NWAY **********;
+349            proc olap
+350              CUBE                   = "&cube"
+351               COALESCE_AGGREGATIONS;
+352        
+353              METASVR
+354                  HOST        = "vSAS"
+355                  PORT        = 8561
+356                  OLAP_SCHEMA = "SASApp - OLAP Schema";
+357        
+358            run;
+359        
+360            %put ****** FINISH loading for snapshot = &&segment&x ******;
+361          %end;
+362          %else %do; /* if errors exist */
+363            %put *********** ERRORS DETECTED: ABORTING **********;
+364            %abort cancel;
+365          %end;
+366        
+367        %end;
+368        %mend LoadSegmentsIntoCube;
+369        
+370        /* disable log during macro */
+371        options nosource;
+****** Load next segment into table to incrementally load cube for segment = 19265 ******
+ 
+ODBC_10: Prepared: on connection 0
+SELECT * FROM public.FACT_TRANSACTIONS
+ 
+ 
+ODBC_11: Prepared: on connection 0
+SELECT  "transaction_key", "transaction_type_key", "party_account_key", "location_key", "transaction_date", "transaction_amount"  
+FROM public.FACT_TRANSACTIONS  WHERE  ( "transaction_date" = 19265 )
+ 
+ 
+ODBC_12: Executed: on connection 0
+Prepared statement ODBC_11
+ 
+ 
+Summary Statistics for ODBC are:
+19                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+Total row fetch seconds were:                      85.786305
+Total SQL execution seconds were:                   7.559877
+Total SQL prepare seconds were:                     0.000037
+Total SQL describe seconds were:                    0.533803
+Total seconds used by the ODBC ACCESS engine were    94.434128
+ 
+NOTE: Table SGF2013.FACT_TRANSACTIONS_SEGMENT created, with 2133327 rows and 6 columns.
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           1:34.45
+      user cpu time       21.00 seconds
+      system cpu time     3.68 seconds
+      memory              799.28k
+      OS Memory           35588.00k
+      Timestamp           12/12/2012 06:34:31 PM
+      Page Faults                       31
+      Page Reclaims                     587
+      Page Swaps                        0
+      Voluntary Context Switches        118
+      Involuntary Context Switches      61
+      Block Input Operations            7080
+      Block Output Operations           208176
+      
+
+****** LOAD cube for snapshot = 19265 ******
+
+ 
+ODBC_13: Prepared: on connection 0
+SELECT * FROM public.DIM_LOCATION
+ 
+ 
+ODBC_14: Prepared: on connection 0
+SELECT * FROM public.DIM_TRANSACTION_TYPE
+ 
+ 
+ODBC_15: Prepared: on connection 0
+SELECT * FROM public.DIM_PARTY_ACCOUNT
+ 
+NOTE: The format on the "Year" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Month" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Date" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Quarter" level does not match the format originally used to load the cube or shared dimension. The 
+      original format will be used.
+NOTE: The format on the "Month Year" level does not match the format originally used to load the cube or shared dimension. The 
+      original format will be used.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 1 new level member captions found for the "Date" level.
+NOTE: There were 1 new leaf members found for the "YMD" hierarchy.
+NOTE: There were 1 new leaf members found for the "YQMD" hierarchy.
+20                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_16: Prepared: on connection 0
+SELECT  "state", "county", "city", "location_key"  FROM public.DIM_LOCATION 
+ 
+ 
+ODBC_17: Executed: on connection 0
+Prepared statement ODBC_16
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 20000 keys found in the dimension table for the "Location" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10855093K bytes. Actual memory acquired was 5952K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_18: Prepared: on connection 0
+SELECT  "transaction_type", "transaction_category", "transaction_type_key"  FROM public.DIM_TRANSACTION_TYPE 
+ 
+ 
+ODBC_19: Executed: on connection 0
+Prepared statement ODBC_18
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 13 keys found in the dimension table for the "Transaction Type" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10839170K bytes. Actual memory acquired was 128K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_20: Prepared: on connection 0
+SELECT  "party_type", "party_number", "account_number", "naics_code", "party_name", "account_name", "account_open_date", 
+"party_account_key"  FROM public.DIM_PARTY_ACCOUNT 
+ 
+ 
+ODBC_21: Executed: on connection 0
+Prepared statement ODBC_20
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 14998144 keys found in the dimension table for the "Party Account" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10838760K bytes. Actual memory acquired was 9928512K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The initial memory limit for classification tables was 10877135K bytes. Actual memory acquired was 310912K bytes.
+NOTE: The utility file buffer size selected was 16K bytes.
+NOTE: Number of new records added to NWAY aggregation: 2133303; Total records: 4268665.
+21                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.067338
+Total SQL execution seconds were:                   0.000005
+Total SQL prepare seconds were:                     0.000033
+Total SQL describe seconds were:                    0.054220
+Total seconds used by the ODBC ACCESS engine were   655.461428
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.000155
+Total SQL execution seconds were:                   0.000004
+Total SQL prepare seconds were:                     0.000016
+Total SQL describe seconds were:                    0.001219
+Total seconds used by the ODBC ACCESS engine were   655.438279
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                     172.345495
+Total SQL execution seconds were:                   0.000005
+Total SQL prepare seconds were:                     0.000093
+Total SQL describe seconds were:                    1.251731
+Total seconds used by the ODBC ACCESS engine were   655.484089
+ 
+NOTE: Cube "Transaction Summary" was updated successfully.
+
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           12:59.80
+      user cpu time       7:39.84
+      system cpu time     3:44.75
+      memory              12395132.67k
+      OS Memory           13421916.00k
+      Timestamp           12/12/2012 06:47:30 PM
+      Page Faults                       959
+      Page Reclaims                     6372993
+      Page Swaps                        0
+      Voluntary Context Switches        825798
+      Involuntary Context Switches      146586
+      Block Input Operations            93976808
+      Block Output Operations           62182464
+      
+
+******** Coalesce NWAY **********
+
+NOTE: Aggregation "DEFAULT" was coalesced. Total records: 4268665
+NOTE: Cube "Transaction Summary" was coalesced successfully.
+
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           2:56.38
+      user cpu time       53.36 seconds
+      system cpu time     1:09.96
+      memory              465566.67k
+      OS Memory           499808.00k
+      Timestamp           12/12/2012 06:50:27 PM
+      Page Faults                       156
+      Page Reclaims                     531343
+      Page Swaps                        0
+      Voluntary Context Switches        165979
+22                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+      Involuntary Context Switches      27662
+      Block Input Operations            44187528
+      Block Output Operations           51767656
+      
+
+****** FINISH loading for snapshot = 19265 ******
+****** Load next segment into table to incrementally load cube for segment = 19264 ******
+ 
+ODBC_22: Prepared: on connection 0
+SELECT * FROM public.FACT_TRANSACTIONS
+ 
+ 
+ODBC_23: Prepared: on connection 0
+SELECT  "transaction_key", "transaction_type_key", "party_account_key", "location_key", "transaction_date", "transaction_amount"  
+FROM public.FACT_TRANSACTIONS  WHERE  ( "transaction_date" = 19264 )
+ 
+ 
+ODBC_24: Executed: on connection 0
+Prepared statement ODBC_23
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                      85.860226
+Total SQL execution seconds were:                   7.786470
+Total SQL prepare seconds were:                     0.000026
+Total SQL describe seconds were:                    0.509081
+Total seconds used by the ODBC ACCESS engine were    94.738311
+ 
+NOTE: Table SGF2013.FACT_TRANSACTIONS_SEGMENT created, with 2135362 rows and 6 columns.
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           1:34.76
+      user cpu time       21.08 seconds
+      system cpu time     3.65 seconds
+      memory              800.31k
+      OS Memory           36356.00k
+      Timestamp           12/12/2012 06:52:02 PM
+      Page Faults                       62
+      Page Reclaims                     526
+      Page Swaps                        0
+      Voluntary Context Switches        147
+      Involuntary Context Switches      58
+      Block Input Operations            12592
+      Block Output Operations           208376
+      
+
+****** LOAD cube for snapshot = 19264 ******
+
+ 
+ODBC_25: Prepared: on connection 0
+SELECT * FROM public.DIM_LOCATION
+ 
+ 
+ODBC_26: Prepared: on connection 0
+SELECT * FROM public.DIM_TRANSACTION_TYPE
+ 
+ 
+ODBC_27: Prepared: on connection 0
+23                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+SELECT * FROM public.DIM_PARTY_ACCOUNT
+ 
+NOTE: The format on the "Year" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Month" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Date" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Quarter" level does not match the format originally used to load the cube or shared dimension. The 
+      original format will be used.
+NOTE: The format on the "Month Year" level does not match the format originally used to load the cube or shared dimension. The 
+      original format will be used.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 1 new level member captions found for the "Date" level.
+NOTE: There were 1 new leaf members found for the "YMD" hierarchy.
+NOTE: There were 1 new leaf members found for the "YQMD" hierarchy.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_28: Prepared: on connection 0
+SELECT  "state", "county", "city", "location_key"  FROM public.DIM_LOCATION 
+ 
+ 
+ODBC_29: Executed: on connection 0
+Prepared statement ODBC_28
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 20000 keys found in the dimension table for the "Location" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10854479K bytes. Actual memory acquired was 5952K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_30: Prepared: on connection 0
+SELECT  "transaction_type", "transaction_category", "transaction_type_key"  FROM public.DIM_TRANSACTION_TYPE 
+ 
+ 
+ODBC_31: Executed: on connection 0
+Prepared statement ODBC_30
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 13 keys found in the dimension table for the "Transaction Type" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10839170K bytes. Actual memory acquired was 128K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+24                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_32: Prepared: on connection 0
+SELECT  "party_type", "party_number", "account_number", "naics_code", "party_name", "account_name", "account_open_date", 
+"party_account_key"  FROM public.DIM_PARTY_ACCOUNT 
+ 
+ 
+ODBC_33: Executed: on connection 0
+Prepared statement ODBC_32
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 14998144 keys found in the dimension table for the "Party Account" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10838760K bytes. Actual memory acquired was 9928512K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The initial memory limit for classification tables was 10876520K bytes. Actual memory acquired was 310912K bytes.
+NOTE: The utility file buffer size selected was 16K bytes.
+NOTE: Number of new records added to NWAY aggregation: 2135339; Total records: 6404004.
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.071711
+Total SQL execution seconds were:                   0.000005
+Total SQL prepare seconds were:                     0.000032
+Total SQL describe seconds were:                    0.061600
+Total seconds used by the ODBC ACCESS engine were   659.526131
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.004497
+Total SQL execution seconds were:                   0.000012
+Total SQL prepare seconds were:                     0.000025
+Total SQL describe seconds were:                    0.001194
+Total seconds used by the ODBC ACCESS engine were   659.498777
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                     172.803023
+Total SQL execution seconds were:                   0.000004
+Total SQL prepare seconds were:                     0.000015
+Total SQL describe seconds were:                    1.177491
+Total seconds used by the ODBC ACCESS engine were   659.545245
+ 
+NOTE: Cube "Transaction Summary" was updated successfully.
+
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           12:59.96
+      user cpu time       7:42.24
+      system cpu time     3:17.20
+      memory              12394848.71k
+      OS Memory           13421148.00k
+      Timestamp           12/12/2012 07:05:02 PM
+      Page Faults                       551
+      Page Reclaims                     6376867
+      Page Swaps                        0
+25                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+      Voluntary Context Switches        857268
+      Involuntary Context Switches      133069
+      Block Input Operations            102687744
+      Block Output Operations           62185120
+      
+
+******** Coalesce NWAY **********
+
+NOTE: Aggregation "DEFAULT" was coalesced. Total records: 6404004
+NOTE: Cube "Transaction Summary" was coalesced successfully.
+
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           3:31.33
+      user cpu time       1:10.79
+      system cpu time     1:11.70
+      memory              551927.53k
+      OS Memory           586236.00k
+      Timestamp           12/12/2012 07:08:33 PM
+      Page Faults                       128
+      Page Reclaims                     515858
+      Page Swaps                        0
+      Voluntary Context Switches        147339
+      Involuntary Context Switches      26279
+      Block Input Operations            44548544
+      Block Output Operations           54887896
+      
+
+****** FINISH loading for snapshot = 19264 ******
+****** Load next segment into table to incrementally load cube for segment = 19263 ******
+ 
+ODBC_34: Prepared: on connection 0
+SELECT * FROM public.FACT_TRANSACTIONS
+ 
+ 
+ODBC_35: Prepared: on connection 0
+SELECT  "transaction_key", "transaction_type_key", "party_account_key", "location_key", "transaction_date", "transaction_amount"  
+FROM public.FACT_TRANSACTIONS  WHERE  ( "transaction_date" = 19263 )
+ 
+ 
+ODBC_36: Executed: on connection 0
+Prepared statement ODBC_35
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                      86.081531
+Total SQL execution seconds were:                   7.767664
+Total SQL prepare seconds were:                     0.000025
+Total SQL describe seconds were:                    0.527326
+Total seconds used by the ODBC ACCESS engine were    94.961097
+ 
+NOTE: Table SGF2013.FACT_TRANSACTIONS_SEGMENT created, with 2133094 rows and 6 columns.
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           1:34.99
+      user cpu time       21.02 seconds
+      system cpu time     3.56 seconds
+      memory              800.43k
+      OS Memory           36356.00k
+26                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+      Timestamp           12/12/2012 07:10:08 PM
+      Page Faults                       72
+      Page Reclaims                     547
+      Page Swaps                        0
+      Voluntary Context Switches        158
+      Involuntary Context Switches      56
+      Block Input Operations            14168
+      Block Output Operations           208160
+      
+
+****** LOAD cube for snapshot = 19263 ******
+
+ 
+ODBC_37: Prepared: on connection 0
+SELECT * FROM public.DIM_LOCATION
+ 
+ 
+ODBC_38: Prepared: on connection 0
+SELECT * FROM public.DIM_TRANSACTION_TYPE
+ 
+ 
+ODBC_39: Prepared: on connection 0
+SELECT * FROM public.DIM_PARTY_ACCOUNT
+ 
+NOTE: The format on the "Year" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Month" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Date" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Quarter" level does not match the format originally used to load the cube or shared dimension. The 
+      original format will be used.
+NOTE: The format on the "Month Year" level does not match the format originally used to load the cube or shared dimension. The 
+      original format will be used.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 1 new level member captions found for the "Date" level.
+NOTE: There were 1 new leaf members found for the "YMD" hierarchy.
+NOTE: There were 1 new leaf members found for the "YQMD" hierarchy.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_40: Prepared: on connection 0
+SELECT  "state", "county", "city", "location_key"  FROM public.DIM_LOCATION 
+ 
+ 
+ODBC_41: Executed: on connection 0
+Prepared statement ODBC_40
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+27                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+NOTE: Subtypes are now complete.
+NOTE: There were 20000 keys found in the dimension table for the "Location" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10854479K bytes. Actual memory acquired was 5952K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_42: Prepared: on connection 0
+SELECT  "transaction_type", "transaction_category", "transaction_type_key"  FROM public.DIM_TRANSACTION_TYPE 
+ 
+ 
+ODBC_43: Executed: on connection 0
+Prepared statement ODBC_42
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 13 keys found in the dimension table for the "Transaction Type" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10839375K bytes. Actual memory acquired was 128K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_44: Prepared: on connection 0
+SELECT  "party_type", "party_number", "account_number", "naics_code", "party_name", "account_name", "account_open_date", 
+"party_account_key"  FROM public.DIM_PARTY_ACCOUNT 
+ 
+ 
+ODBC_45: Executed: on connection 0
+Prepared statement ODBC_44
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 14998144 keys found in the dimension table for the "Party Account" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10838965K bytes. Actual memory acquired was 9928512K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The initial memory limit for classification tables was 10876520K bytes. Actual memory acquired was 310912K bytes.
+NOTE: The utility file buffer size selected was 16K bytes.
+NOTE: Number of new records added to NWAY aggregation: 2133068; Total records: 8537072.
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.077746
+Total SQL execution seconds were:                   0.000005
+Total SQL prepare seconds were:                     0.000039
+Total SQL describe seconds were:                    0.068920
+Total seconds used by the ODBC ACCESS engine were   655.415022
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.000415
+Total SQL execution seconds were:                   0.000005
+Total SQL prepare seconds were:                     0.000017
+Total SQL describe seconds were:                    0.001430
+28                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+Total seconds used by the ODBC ACCESS engine were   655.381089
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                     173.760349
+Total SQL execution seconds were:                   0.000005
+Total SQL prepare seconds were:                     0.000016
+Total SQL describe seconds were:                    1.161942
+Total seconds used by the ODBC ACCESS engine were   655.431701
+ 
+NOTE: Cube "Transaction Summary" was updated successfully.
+
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           12:58.24
+      user cpu time       7:41.77
+      system cpu time     3:33.86
+      memory              12394807.23k
+      OS Memory           13420892.00k
+      Timestamp           12/12/2012 07:23:06 PM
+      Page Faults                       634
+      Page Reclaims                     6369077
+      Page Swaps                        0
+      Voluntary Context Switches        850610
+      Involuntary Context Switches      134144
+      Block Input Operations            102628904
+      Block Output Operations           62182272
+      
+
+******** Coalesce NWAY **********
+
+NOTE: Aggregation "DEFAULT" was coalesced. Total records: 8537072
+NOTE: Cube "Transaction Summary" was coalesced successfully.
+
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           4:10.43
+      user cpu time       1:40.03
+      system cpu time     1:14.52
+      memory              735280.98k
+      OS Memory           769292.00k
+      Timestamp           12/12/2012 07:27:17 PM
+      Page Faults                       128
+      Page Reclaims                     691261
+      Page Swaps                        0
+      Voluntary Context Switches        158097
+      Involuntary Context Switches      25808
+      Block Input Operations            45185600
+      Block Output Operations           57904064
+      
+
+****** FINISH loading for snapshot = 19263 ******
+****** Load next segment into table to incrementally load cube for segment = 19262 ******
+ 
+ODBC_46: Prepared: on connection 0
+SELECT * FROM public.FACT_TRANSACTIONS
+ 
+ 
+ODBC_47: Prepared: on connection 0
+SELECT  "transaction_key", "transaction_type_key", "party_account_key", "location_key", "transaction_date", "transaction_amount"  
+29                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+FROM public.FACT_TRANSACTIONS  WHERE  ( "transaction_date" = 19262 )
+ 
+ 
+ODBC_48: Executed: on connection 0
+Prepared statement ODBC_47
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                      87.469276
+Total SQL execution seconds were:                   7.885925
+Total SQL prepare seconds were:                     0.000056
+Total SQL describe seconds were:                    0.517330
+Total seconds used by the ODBC ACCESS engine were    96.440635
+ 
+NOTE: Table SGF2013.FACT_TRANSACTIONS_SEGMENT created, with 2133235 rows and 6 columns.
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           1:36.47
+      user cpu time       20.73 seconds
+      system cpu time     3.59 seconds
+      memory              800.50k
+      OS Memory           36100.00k
+      Timestamp           12/12/2012 07:28:53 PM
+      Page Faults                       72
+      Page Reclaims                     547
+      Page Swaps                        0
+      Voluntary Context Switches        162
+      Involuntary Context Switches      57
+      Block Input Operations            14184
+      Block Output Operations           208168
+      
+
+****** LOAD cube for snapshot = 19262 ******
+
+ 
+ODBC_49: Prepared: on connection 0
+SELECT * FROM public.DIM_LOCATION
+ 
+ 
+ODBC_50: Prepared: on connection 0
+SELECT * FROM public.DIM_TRANSACTION_TYPE
+ 
+ 
+ODBC_51: Prepared: on connection 0
+SELECT * FROM public.DIM_PARTY_ACCOUNT
+ 
+NOTE: The format on the "Year" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Month" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Date" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Quarter" level does not match the format originally used to load the cube or shared dimension. The 
+      original format will be used.
+NOTE: The format on the "Month Year" level does not match the format originally used to load the cube or shared dimension. The 
+      original format will be used.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+30                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 1 new level member captions found for the "Date" level.
+NOTE: There were 1 new leaf members found for the "YMD" hierarchy.
+NOTE: There were 1 new leaf members found for the "YQMD" hierarchy.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_52: Prepared: on connection 0
+SELECT  "state", "county", "city", "location_key"  FROM public.DIM_LOCATION 
+ 
+ 
+ODBC_53: Executed: on connection 0
+Prepared statement ODBC_52
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 20000 keys found in the dimension table for the "Location" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10854684K bytes. Actual memory acquired was 5952K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_54: Prepared: on connection 0
+SELECT  "transaction_type", "transaction_category", "transaction_type_key"  FROM public.DIM_TRANSACTION_TYPE 
+ 
+ 
+ODBC_55: Executed: on connection 0
+Prepared statement ODBC_54
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 13 keys found in the dimension table for the "Transaction Type" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10839375K bytes. Actual memory acquired was 128K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_56: Prepared: on connection 0
+SELECT  "party_type", "party_number", "account_number", "naics_code", "party_name", "account_name", "account_open_date", 
+"party_account_key"  FROM public.DIM_PARTY_ACCOUNT 
+ 
+ 
+ODBC_57: Executed: on connection 0
+Prepared statement ODBC_56
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+31                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 14998144 keys found in the dimension table for the "Party Account" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10838965K bytes. Actual memory acquired was 9928512K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The initial memory limit for classification tables was 10876725K bytes. Actual memory acquired was 310912K bytes.
+NOTE: The utility file buffer size selected was 16K bytes.
+NOTE: Number of new records added to NWAY aggregation: 2133222; Total records: 10670294.
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.075125
+Total SQL execution seconds were:                   0.000010
+Total SQL prepare seconds were:                     0.000030
+Total SQL describe seconds were:                    0.057112
+Total seconds used by the ODBC ACCESS engine were   654.882626
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.008293
+Total SQL execution seconds were:                   0.000014
+Total SQL prepare seconds were:                     0.000034
+Total SQL describe seconds were:                    0.001619
+Total seconds used by the ODBC ACCESS engine were   654.857308
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                     172.460688
+Total SQL execution seconds were:                   0.000005
+Total SQL prepare seconds were:                     0.000017
+Total SQL describe seconds were:                    1.165212
+Total seconds used by the ODBC ACCESS engine were   654.907109
+ 
+NOTE: Cube "Transaction Summary" was updated successfully.
+
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           12:56.07
+      user cpu time       7:43.35
+      system cpu time     3:35.25
+      memory              12395031.23k
+      OS Memory           13421404.00k
+      Timestamp           12/12/2012 07:41:49 PM
+      Page Faults                       890
+      Page Reclaims                     6372827
+      Page Swaps                        0
+      Voluntary Context Switches        848668
+      Involuntary Context Switches      133554
+      Block Input Operations            102613368
+      Block Output Operations           62182456
+      
+
+******** Coalesce NWAY **********
+
+NOTE: Aggregation "DEFAULT" was coalesced. Total records: 10670294
+NOTE: Cube "Transaction Summary" was coalesced successfully.
+
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           4:48.26
+      user cpu time       2:07.73
+32                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+      system cpu time     1:17.85
+      memory              918648.73k
+      OS Memory           952108.00k
+      Timestamp           12/12/2012 07:46:38 PM
+      Page Faults                       129
+      Page Reclaims                     852879
+      Page Swaps                        0
+      Voluntary Context Switches        166111
+      Involuntary Context Switches      24684
+      Block Input Operations            45761128
+      Block Output Operations           60874520
+      
+
+****** FINISH loading for snapshot = 19262 ******
+****** Load next segment into table to incrementally load cube for segment = 19261 ******
+ 
+ODBC_58: Prepared: on connection 0
+SELECT * FROM public.FACT_TRANSACTIONS
+ 
+ 
+ODBC_59: Prepared: on connection 0
+SELECT  "transaction_key", "transaction_type_key", "party_account_key", "location_key", "transaction_date", "transaction_amount"  
+FROM public.FACT_TRANSACTIONS  WHERE  ( "transaction_date" = 19261 )
+ 
+ 
+ODBC_60: Executed: on connection 0
+Prepared statement ODBC_59
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                      86.646939
+Total SQL execution seconds were:                   7.597476
+Total SQL prepare seconds were:                     0.000026
+Total SQL describe seconds were:                    0.500921
+Total seconds used by the ODBC ACCESS engine were    95.336576
+ 
+NOTE: Table SGF2013.FACT_TRANSACTIONS_SEGMENT created, with 2130487 rows and 6 columns.
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           1:35.36
+      user cpu time       21.14 seconds
+      system cpu time     3.53 seconds
+      memory              806.68k
+      OS Memory           35588.00k
+      Timestamp           12/12/2012 07:48:13 PM
+      Page Faults                       71
+      Page Reclaims                     548
+      Page Swaps                        0
+      Voluntary Context Switches        155
+      Involuntary Context Switches      57
+      Block Input Operations            14088
+      Block Output Operations           207904
+      
+
+****** LOAD cube for snapshot = 19261 ******
+
+ 
+ODBC_61: Prepared: on connection 0
+33                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+SELECT * FROM public.DIM_LOCATION
+ 
+ 
+ODBC_62: Prepared: on connection 0
+SELECT * FROM public.DIM_TRANSACTION_TYPE
+ 
+ 
+ODBC_63: Prepared: on connection 0
+SELECT * FROM public.DIM_PARTY_ACCOUNT
+ 
+NOTE: The format on the "Year" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Month" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Date" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Quarter" level does not match the format originally used to load the cube or shared dimension. The 
+      original format will be used.
+NOTE: The format on the "Month Year" level does not match the format originally used to load the cube or shared dimension. The 
+      original format will be used.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 1 new level member captions found for the "Date" level.
+NOTE: There were 1 new leaf members found for the "YMD" hierarchy.
+NOTE: There were 1 new leaf members found for the "YQMD" hierarchy.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_64: Prepared: on connection 0
+SELECT  "state", "county", "city", "location_key"  FROM public.DIM_LOCATION 
+ 
+ 
+ODBC_65: Executed: on connection 0
+Prepared statement ODBC_64
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 20000 keys found in the dimension table for the "Location" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10855093K bytes. Actual memory acquired was 5952K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_66: Prepared: on connection 0
+SELECT  "transaction_type", "transaction_category", "transaction_type_key"  FROM public.DIM_TRANSACTION_TYPE 
+ 
+ 
+ODBC_67: Executed: on connection 0
+Prepared statement ODBC_66
+ 
+34                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 13 keys found in the dimension table for the "Transaction Type" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10839375K bytes. Actual memory acquired was 128K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_68: Prepared: on connection 0
+SELECT  "party_type", "party_number", "account_number", "naics_code", "party_name", "account_name", "account_open_date", 
+"party_account_key"  FROM public.DIM_PARTY_ACCOUNT 
+ 
+ 
+ODBC_69: Executed: on connection 0
+Prepared statement ODBC_68
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 14998144 keys found in the dimension table for the "Party Account" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10838965K bytes. Actual memory acquired was 9928512K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The initial memory limit for classification tables was 10877135K bytes. Actual memory acquired was 310912K bytes.
+NOTE: The utility file buffer size selected was 16K bytes.
+NOTE: Number of new records added to NWAY aggregation: 2130466; Total records: 12800760.
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.077516
+Total SQL execution seconds were:                   0.000005
+Total SQL prepare seconds were:                     0.000039
+Total SQL describe seconds were:                    0.053778
+Total seconds used by the ODBC ACCESS engine were   657.500081
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.000166
+Total SQL execution seconds were:                   0.000004
+Total SQL prepare seconds were:                     0.000023
+Total SQL describe seconds were:                    0.001594
+Total seconds used by the ODBC ACCESS engine were   657.479265
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                     172.695511
+Total SQL execution seconds were:                   0.000005
+Total SQL prepare seconds were:                     0.000016
+Total SQL describe seconds were:                    1.165436
+Total seconds used by the ODBC ACCESS engine were   657.533685
+ 
+NOTE: Cube "Transaction Summary" was updated successfully.
+
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           13:00.00
+35                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+      user cpu time       7:43.63
+      system cpu time     3:38.42
+      memory              12395191.85k
+      OS Memory           13421404.00k
+      Timestamp           12/12/2012 08:01:13 PM
+      Page Faults                       1129
+      Page Reclaims                     6368639
+      Page Swaps                        0
+      Voluntary Context Switches        860921
+      Involuntary Context Switches      135094
+      Block Input Operations            103431112
+      Block Output Operations           62178968
+      
+
+******** Coalesce NWAY **********
+
+NOTE: Aggregation "DEFAULT" was coalesced. Total records: 12800760
+NOTE: Cube "Transaction Summary" was coalesced successfully.
+
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           5:32.02
+      user cpu time       2:39.52
+      system cpu time     1:20.82
+      memory              1101764.28k
+      OS Memory           1134932.00k
+      Timestamp           12/12/2012 08:06:45 PM
+      Page Faults                       128
+      Page Reclaims                     1028385
+      Page Swaps                        0
+      Voluntary Context Switches        175978
+      Involuntary Context Switches      23739
+      Block Input Operations            46538632
+      Block Output Operations           63773080
+      
+
+****** FINISH loading for snapshot = 19261 ******
+****** Load next segment into table to incrementally load cube for segment = 19260 ******
+ 
+ODBC_70: Prepared: on connection 0
+SELECT * FROM public.FACT_TRANSACTIONS
+ 
+ 
+ODBC_71: Prepared: on connection 0
+SELECT  "transaction_key", "transaction_type_key", "party_account_key", "location_key", "transaction_date", "transaction_amount"  
+FROM public.FACT_TRANSACTIONS  WHERE  ( "transaction_date" = 19260 )
+ 
+ 
+ODBC_72: Executed: on connection 0
+Prepared statement ODBC_71
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                      86.873370
+Total SQL execution seconds were:                   7.663652
+Total SQL prepare seconds were:                     0.000025
+Total SQL describe seconds were:                    0.525384
+Total seconds used by the ODBC ACCESS engine were    95.645975
+ 
+36                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+NOTE: Table SGF2013.FACT_TRANSACTIONS_SEGMENT created, with 2131954 rows and 6 columns.
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           1:35.67
+      user cpu time       20.83 seconds
+      system cpu time     3.56 seconds
+      memory              805.03k
+      OS Memory           35332.00k
+      Timestamp           12/12/2012 08:08:21 PM
+      Page Faults                       72
+      Page Reclaims                     547
+      Page Swaps                        0
+      Voluntary Context Switches        157
+      Involuntary Context Switches      63
+      Block Input Operations            14176
+      Block Output Operations           208048
+      
+
+****** LOAD cube for snapshot = 19260 ******
+
+ 
+ODBC_73: Prepared: on connection 0
+SELECT * FROM public.DIM_LOCATION
+ 
+ 
+ODBC_74: Prepared: on connection 0
+SELECT * FROM public.DIM_TRANSACTION_TYPE
+ 
+ 
+ODBC_75: Prepared: on connection 0
+SELECT * FROM public.DIM_PARTY_ACCOUNT
+ 
+NOTE: The format on the "Year" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Month" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Date" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Quarter" level does not match the format originally used to load the cube or shared dimension. The 
+      original format will be used.
+NOTE: The format on the "Month Year" level does not match the format originally used to load the cube or shared dimension. The 
+      original format will be used.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 1 new level member captions found for the "Date" level.
+NOTE: There were 1 new leaf members found for the "YMD" hierarchy.
+NOTE: There were 1 new leaf members found for the "YQMD" hierarchy.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_76: Prepared: on connection 0
+SELECT  "state", "county", "city", "location_key"  FROM public.DIM_LOCATION 
+ 
+37                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+ 
+ODBC_77: Executed: on connection 0
+Prepared statement ODBC_76
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 20000 keys found in the dimension table for the "Location" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10855298K bytes. Actual memory acquired was 5952K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_78: Prepared: on connection 0
+SELECT  "transaction_type", "transaction_category", "transaction_type_key"  FROM public.DIM_TRANSACTION_TYPE 
+ 
+ 
+ODBC_79: Executed: on connection 0
+Prepared statement ODBC_78
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 13 keys found in the dimension table for the "Transaction Type" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10839375K bytes. Actual memory acquired was 128K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_80: Prepared: on connection 0
+SELECT  "party_type", "party_number", "account_number", "naics_code", "party_name", "account_name", "account_open_date", 
+"party_account_key"  FROM public.DIM_PARTY_ACCOUNT 
+ 
+ 
+ODBC_81: Executed: on connection 0
+Prepared statement ODBC_80
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 14998144 keys found in the dimension table for the "Party Account" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10838965K bytes. Actual memory acquired was 9928512K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The initial memory limit for classification tables was 10877340K bytes. Actual memory acquired was 310912K bytes.
+NOTE: The utility file buffer size selected was 16K bytes.
+NOTE: Number of new records added to NWAY aggregation: 2131937; Total records: 14932697.
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.077800
+Total SQL execution seconds were:                   0.000005
+Total SQL prepare seconds were:                     0.000030
+Total SQL describe seconds were:                    0.050222
+38                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+Total seconds used by the ODBC ACCESS engine were   661.066071
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.003329
+Total SQL execution seconds were:                   0.000007
+Total SQL prepare seconds were:                     0.000017
+Total SQL describe seconds were:                    0.004892
+Total seconds used by the ODBC ACCESS engine were   661.045511
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                     172.323625
+Total SQL execution seconds were:                   0.000009
+Total SQL prepare seconds were:                     0.000018
+Total SQL describe seconds were:                    1.140323
+Total seconds used by the ODBC ACCESS engine were   661.097310
+ 
+NOTE: Cube "Transaction Summary" was updated successfully.
+
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           13:01.97
+      user cpu time       7:43.56
+      system cpu time     3:42.27
+      memory              12395149.98k
+      OS Memory           13421404.00k
+      Timestamp           12/12/2012 08:21:23 PM
+      Page Faults                       1772
+      Page Reclaims                     6364824
+      Page Swaps                        0
+      Voluntary Context Switches        859935
+      Involuntary Context Switches      133434
+      Block Input Operations            103273176
+      Block Output Operations           62180976
+      
+
+******** Coalesce NWAY **********
+
+NOTE: Aggregation "DEFAULT" was coalesced. Total records: 14932697
+ERROR: Indexes cannot be created for the NWAY aggregation.
+NOTE: Cube "Transaction Summary" was coalesced successfully.
+
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           5:00.31
+      user cpu time       2:24.80
+      system cpu time     1:19.93
+      memory              1285117.75k
+      OS Memory           1318148.00k
+      Timestamp           12/12/2012 08:26:23 PM
+      Page Faults                       128
+      Page Reclaims                     980752
+      Page Swaps                        0
+      Voluntary Context Switches        182409
+      Involuntary Context Switches      23006
+      Block Input Operations            47113376
+      Block Output Operations           63338288
+      
+
+39                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+****** FINISH loading for snapshot = 19260 ******
+****** Load next segment into table to incrementally load cube for segment = 19259 ******
+ 
+ODBC_82: Prepared: on connection 0
+SELECT * FROM public.FACT_TRANSACTIONS
+ 
+ 
+ODBC_83: Prepared: on connection 0
+SELECT  "transaction_key", "transaction_type_key", "party_account_key", "location_key", "transaction_date", "transaction_amount"  
+FROM public.FACT_TRANSACTIONS  WHERE  ( "transaction_date" = 19259 )
+ 
+ 
+ODBC_84: Executed: on connection 0
+Prepared statement ODBC_83
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                      87.361987
+Total SQL execution seconds were:                   7.781534
+Total SQL prepare seconds were:                     0.000018
+Total SQL describe seconds were:                    0.519377
+Total seconds used by the ODBC ACCESS engine were    96.225819
+ 
+NOTE: Table SGF2013.FACT_TRANSACTIONS_SEGMENT created, with 2131612 rows and 6 columns.
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           1:36.25
+      user cpu time       20.51 seconds
+      system cpu time     3.63 seconds
+      memory              802.40k
+      OS Memory           35076.00k
+      Timestamp           12/12/2012 08:27:59 PM
+      Page Faults                       47
+      Page Reclaims                     359
+      Page Swaps                        0
+      Voluntary Context Switches        135
+      Involuntary Context Switches      51
+      Block Input Operations            8840
+      Block Output Operations           208008
+      
+
+****** LOAD cube for snapshot = 19259 ******
+
+ 
+ODBC_85: Prepared: on connection 0
+SELECT * FROM public.DIM_LOCATION
+ 
+ 
+ODBC_86: Prepared: on connection 0
+SELECT * FROM public.DIM_TRANSACTION_TYPE
+ 
+ 
+ODBC_87: Prepared: on connection 0
+SELECT * FROM public.DIM_PARTY_ACCOUNT
+ 
+NOTE: The format on the "Year" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Month" level does not match the format originally used to load the cube or shared dimension. The original 
+40                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+      format will be used.
+NOTE: The format on the "Date" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Quarter" level does not match the format originally used to load the cube or shared dimension. The 
+      original format will be used.
+NOTE: The format on the "Month Year" level does not match the format originally used to load the cube or shared dimension. The 
+      original format will be used.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 1 new level member captions found for the "Date" level.
+NOTE: There were 1 new leaf members found for the "YMD" hierarchy.
+NOTE: There were 1 new leaf members found for the "YQMD" hierarchy.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_88: Prepared: on connection 0
+SELECT  "state", "county", "city", "location_key"  FROM public.DIM_LOCATION 
+ 
+ 
+ODBC_89: Executed: on connection 0
+Prepared statement ODBC_88
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 20000 keys found in the dimension table for the "Location" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10855503K bytes. Actual memory acquired was 5952K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_90: Prepared: on connection 0
+SELECT  "transaction_type", "transaction_category", "transaction_type_key"  FROM public.DIM_TRANSACTION_TYPE 
+ 
+ 
+ODBC_91: Executed: on connection 0
+Prepared statement ODBC_90
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 13 keys found in the dimension table for the "Transaction Type" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10839375K bytes. Actual memory acquired was 128K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_92: Prepared: on connection 0
+SELECT  "party_type", "party_number", "account_number", "naics_code", "party_name", "account_name", "account_open_date", 
+41                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+"party_account_key"  FROM public.DIM_PARTY_ACCOUNT 
+ 
+ 
+ODBC_93: Executed: on connection 0
+Prepared statement ODBC_92
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 14998144 keys found in the dimension table for the "Party Account" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10838965K bytes. Actual memory acquired was 9928512K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The initial memory limit for classification tables was 10877544K bytes. Actual memory acquired was 310912K bytes.
+NOTE: The utility file buffer size selected was 16K bytes.
+NOTE: Number of new records added to NWAY aggregation: 2131598; Total records: 17064295.
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.073269
+Total SQL execution seconds were:                   0.000009
+Total SQL prepare seconds were:                     0.000035
+Total SQL describe seconds were:                    0.048949
+Total seconds used by the ODBC ACCESS engine were   657.073799
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.000224
+Total SQL execution seconds were:                   0.000006
+Total SQL prepare seconds were:                     0.000040
+Total SQL describe seconds were:                    0.001688
+Total seconds used by the ODBC ACCESS engine were   657.053890
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                     172.163905
+Total SQL execution seconds were:                   0.000005
+Total SQL prepare seconds were:                     0.000017
+Total SQL describe seconds were:                    1.122835
+Total seconds used by the ODBC ACCESS engine were   657.106486
+ 
+NOTE: Cube "Transaction Summary" was updated successfully.
+
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           13:00.28
+      user cpu time       7:41.73
+      system cpu time     3:38.39
+      memory              12395501.98k
+      OS Memory           13421660.00k
+      Timestamp           12/12/2012 08:41:00 PM
+      Page Faults                       1547
+      Page Reclaims                     6385686
+      Page Swaps                        0
+      Voluntary Context Switches        864265
+      Involuntary Context Switches      134074
+      Block Input Operations            103600568
+      Block Output Operations           62180536
+      
+42                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+
+******** Coalesce NWAY **********
+
+NOTE: Aggregation "DEFAULT" was coalesced. Total records: 17064295
+ERROR: Indexes cannot be created for the NWAY aggregation.
+NOTE: Cube "Transaction Summary" was coalesced successfully.
+
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           5:55.81
+      user cpu time       3:46.11
+      system cpu time     1:26.04
+      memory              1468350.06k
+      OS Memory           1501332.00k
+      Timestamp           12/12/2012 08:46:55 PM
+      Page Faults                       130
+      Page Reclaims                     1388685
+      Page Swaps                        0
+      Voluntary Context Switches        186009
+      Involuntary Context Switches      25165
+      Block Input Operations            47681160
+      Block Output Operations           68828736
+      
+
+****** FINISH loading for snapshot = 19259 ******
+****** Load next segment into table to incrementally load cube for segment = 19258 ******
+ 
+ODBC_94: Prepared: on connection 0
+SELECT * FROM public.FACT_TRANSACTIONS
+ 
+ 
+ODBC_95: Prepared: on connection 0
+SELECT  "transaction_key", "transaction_type_key", "party_account_key", "location_key", "transaction_date", "transaction_amount"  
+FROM public.FACT_TRANSACTIONS  WHERE  ( "transaction_date" = 19258 )
+ 
+ 
+ODBC_96: Executed: on connection 0
+Prepared statement ODBC_95
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                      86.917485
+Total SQL execution seconds were:                   7.571096
+Total SQL prepare seconds were:                     0.000033
+Total SQL describe seconds were:                    0.504048
+Total seconds used by the ODBC ACCESS engine were    95.554232
+ 
+NOTE: Table SGF2013.FACT_TRANSACTIONS_SEGMENT created, with 2132621 rows and 6 columns.
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           1:35.59
+      user cpu time       20.83 seconds
+      system cpu time     3.58 seconds
+      memory              802.40k
+      OS Memory           34820.00k
+      Timestamp           12/12/2012 08:48:31 PM
+      Page Faults                       60
+      Page Reclaims                     499
+      Page Swaps                        0
+43                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+      Voluntary Context Switches        148
+      Involuntary Context Switches      58
+      Block Input Operations            12816
+      Block Output Operations           208112
+      
+
+****** LOAD cube for snapshot = 19258 ******
+
+ 
+ODBC_97: Prepared: on connection 0
+SELECT * FROM public.DIM_LOCATION
+ 
+ 
+ODBC_98: Prepared: on connection 0
+SELECT * FROM public.DIM_TRANSACTION_TYPE
+ 
+ 
+ODBC_99: Prepared: on connection 0
+SELECT * FROM public.DIM_PARTY_ACCOUNT
+ 
+NOTE: The format on the "Year" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Month" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Date" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Quarter" level does not match the format originally used to load the cube or shared dimension. The 
+      original format will be used.
+NOTE: The format on the "Month Year" level does not match the format originally used to load the cube or shared dimension. The 
+      original format will be used.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 1 new level member captions found for the "Date" level.
+NOTE: There were 1 new leaf members found for the "YMD" hierarchy.
+NOTE: There were 1 new leaf members found for the "YQMD" hierarchy.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_100: Prepared: on connection 0
+SELECT  "state", "county", "city", "location_key"  FROM public.DIM_LOCATION 
+ 
+ 
+ODBC_101: Executed: on connection 0
+Prepared statement ODBC_100
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 20000 keys found in the dimension table for the "Location" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10849148K bytes. Actual memory acquired was 5952K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+44                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_102: Prepared: on connection 0
+SELECT  "transaction_type", "transaction_category", "transaction_type_key"  FROM public.DIM_TRANSACTION_TYPE 
+ 
+ 
+ODBC_103: Executed: on connection 0
+Prepared statement ODBC_102
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 13 keys found in the dimension table for the "Transaction Type" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10832815K bytes. Actual memory acquired was 128K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_104: Prepared: on connection 0
+SELECT  "party_type", "party_number", "account_number", "naics_code", "party_name", "account_name", "account_open_date", 
+"party_account_key"  FROM public.DIM_PARTY_ACCOUNT 
+ 
+ 
+ODBC_105: Executed: on connection 0
+Prepared statement ODBC_104
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 14998144 keys found in the dimension table for the "Party Account" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10832405K bytes. Actual memory acquired was 9928512K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The initial memory limit for classification tables was 10877749K bytes. Actual memory acquired was 310912K bytes.
+NOTE: The utility file buffer size selected was 16K bytes.
+NOTE: Number of new records added to NWAY aggregation: 2132595; Total records: 19196890.
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.083081
+Total SQL execution seconds were:                   0.000005
+Total SQL prepare seconds were:                     0.000044
+Total SQL describe seconds were:                    0.059606
+Total seconds used by the ODBC ACCESS engine were   657.667750
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.000148
+Total SQL execution seconds were:                   0.000004
+Total SQL prepare seconds were:                     0.000015
+Total SQL describe seconds were:                    0.008164
+Total seconds used by the ODBC ACCESS engine were   657.638823
+ 
+ 
+Summary Statistics for ODBC are:
+45                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+Total row fetch seconds were:                     172.773575
+Total SQL execution seconds were:                   0.000005
+Total SQL prepare seconds were:                     0.000016
+Total SQL describe seconds were:                    1.316317
+Total seconds used by the ODBC ACCESS engine were   657.682101
+ 
+NOTE: Cube "Transaction Summary" was updated successfully.
+
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           12:58.42
+      user cpu time       7:44.34
+      system cpu time     3:32.71
+      memory              12396522.04k
+      OS Memory           13421904.00k
+      Timestamp           12/12/2012 09:01:30 PM
+      Page Faults                       816
+      Page Reclaims                     6407481
+      Page Swaps                        0
+      Voluntary Context Switches        869532
+      Involuntary Context Switches      133139
+      Block Input Operations            103487272
+      Block Output Operations           62181688
+      
+
+******** Coalesce NWAY **********
+
+NOTE: Aggregation "DEFAULT" was coalesced. Total records: 19196890
+ERROR: Indexes cannot be created for the NWAY aggregation.
+NOTE: Cube "Transaction Summary" was coalesced successfully.
+
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           4:53.33
+      user cpu time       2:12.87
+      system cpu time     1:22.29
+      memory              1651651.29k
+      OS Memory           1684084.00k
+      Timestamp           12/12/2012 09:06:23 PM
+      Page Faults                       124
+      Page Reclaims                     971848
+      Page Swaps                        0
+      Voluntary Context Switches        195472
+      Involuntary Context Switches      26030
+      Block Input Operations            48159400
+      Block Output Operations           64306992
+      
+
+****** FINISH loading for snapshot = 19258 ******
+****** Load next segment into table to incrementally load cube for segment = 19257 ******
+ 
+ODBC_106: Prepared: on connection 0
+SELECT * FROM public.FACT_TRANSACTIONS
+ 
+ 
+ODBC_107: Prepared: on connection 0
+SELECT  "transaction_key", "transaction_type_key", "party_account_key", "location_key", "transaction_date", "transaction_amount"  
+FROM public.FACT_TRANSACTIONS  WHERE  ( "transaction_date" = 19257 )
+ 
+ 
+46                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+ODBC_108: Executed: on connection 0
+Prepared statement ODBC_107
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                      85.542340
+Total SQL execution seconds were:                   7.559751
+Total SQL prepare seconds were:                     0.000023
+Total SQL describe seconds were:                    0.505413
+Total seconds used by the ODBC ACCESS engine were    94.172915
+ 
+NOTE: Table SGF2013.FACT_TRANSACTIONS_SEGMENT created, with 2133812 rows and 6 columns.
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           1:34.19
+      user cpu time       20.93 seconds
+      system cpu time     3.61 seconds
+      memory              801.28k
+      OS Memory           34564.00k
+      Timestamp           12/12/2012 09:07:57 PM
+      Page Faults                       50
+      Page Reclaims                     349
+      Page Swaps                        0
+      Voluntary Context Switches        137
+      Involuntary Context Switches      51
+      Block Input Operations            8608
+      Block Output Operations           208224
+      
+
+****** LOAD cube for snapshot = 19257 ******
+
+ 
+ODBC_109: Prepared: on connection 0
+SELECT * FROM public.DIM_LOCATION
+ 
+ 
+ODBC_110: Prepared: on connection 0
+SELECT * FROM public.DIM_TRANSACTION_TYPE
+ 
+ 
+ODBC_111: Prepared: on connection 0
+SELECT * FROM public.DIM_PARTY_ACCOUNT
+ 
+NOTE: The format on the "Year" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Month" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Date" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Quarter" level does not match the format originally used to load the cube or shared dimension. The 
+      original format will be used.
+NOTE: The format on the "Month Year" level does not match the format originally used to load the cube or shared dimension. The 
+      original format will be used.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+47                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 1 new level member captions found for the "Date" level.
+NOTE: There were 1 new leaf members found for the "YMD" hierarchy.
+NOTE: There were 1 new leaf members found for the "YQMD" hierarchy.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_112: Prepared: on connection 0
+SELECT  "state", "county", "city", "location_key"  FROM public.DIM_LOCATION 
+ 
+ 
+ODBC_113: Executed: on connection 0
+Prepared statement ODBC_112
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 20000 keys found in the dimension table for the "Location" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10855912K bytes. Actual memory acquired was 5952K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_114: Prepared: on connection 0
+SELECT  "transaction_type", "transaction_category", "transaction_type_key"  FROM public.DIM_TRANSACTION_TYPE 
+ 
+ 
+ODBC_115: Executed: on connection 0
+Prepared statement ODBC_114
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 13 keys found in the dimension table for the "Transaction Type" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10839375K bytes. Actual memory acquired was 128K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_116: Prepared: on connection 0
+SELECT  "party_type", "party_number", "account_number", "naics_code", "party_name", "account_name", "account_open_date", 
+"party_account_key"  FROM public.DIM_PARTY_ACCOUNT 
+ 
+ 
+ODBC_117: Executed: on connection 0
+Prepared statement ODBC_116
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 14998144 keys found in the dimension table for the "Party Account" dimension, of which 0 were new.
+48                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+NOTE: The initial memory limit for classification tables was 10838965K bytes. Actual memory acquired was 9928512K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The initial memory limit for classification tables was 10877954K bytes. Actual memory acquired was 310912K bytes.
+NOTE: The utility file buffer size selected was 16K bytes.
+NOTE: Number of new records added to NWAY aggregation: 2133791; Total records: 21330681.
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.088836
+Total SQL execution seconds were:                   0.000005
+Total SQL prepare seconds were:                     0.000039
+Total SQL describe seconds were:                    0.051873
+Total seconds used by the ODBC ACCESS engine were   658.629868
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.000414
+Total SQL execution seconds were:                   0.000008
+Total SQL prepare seconds were:                     0.000024
+Total SQL describe seconds were:                    0.002912
+Total seconds used by the ODBC ACCESS engine were   658.607873
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                     172.081619
+Total SQL execution seconds were:                   0.000005
+Total SQL prepare seconds were:                     0.000017
+Total SQL describe seconds were:                    1.166954
+Total seconds used by the ODBC ACCESS engine were   658.653644
+ 
+NOTE: Cube "Transaction Summary" was updated successfully.
+
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           12:59.15
+      user cpu time       7:42.96
+      system cpu time     3:35.45
+      memory              12395484.51k
+      OS Memory           13421916.00k
+      Timestamp           12/12/2012 09:20:56 PM
+      Page Faults                       1147
+      Page Reclaims                     6372530
+      Page Swaps                        0
+      Voluntary Context Switches        869845
+      Involuntary Context Switches      131990
+      Block Input Operations            103471776
+      Block Output Operations           62183080
+      
+
+******** Coalesce NWAY **********
+
+NOTE: Aggregation "DEFAULT" was coalesced. Total records: 21330681
+ERROR: Indexes cannot be created for the NWAY aggregation.
+NOTE: Cube "Transaction Summary" was coalesced successfully.
+
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           5:41.95
+      user cpu time       3:34.90
+      system cpu time     1:30.73
+      memory              1834973.50k
+49                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+      OS Memory           1866948.00k
+      Timestamp           12/12/2012 09:26:38 PM
+      Page Faults                       127
+      Page Reclaims                     1421830
+      Page Swaps                        0
+      Voluntary Context Switches        200954
+      Involuntary Context Switches      25875
+      Block Input Operations            48661696
+      Block Output Operations           69951024
+      
+
+****** FINISH loading for snapshot = 19257 ******
+****** Load next segment into table to incrementally load cube for segment = 19256 ******
+ 
+ODBC_118: Prepared: on connection 0
+SELECT * FROM public.FACT_TRANSACTIONS
+ 
+ 
+ODBC_119: Prepared: on connection 0
+SELECT  "transaction_key", "transaction_type_key", "party_account_key", "location_key", "transaction_date", "transaction_amount"  
+FROM public.FACT_TRANSACTIONS  WHERE  ( "transaction_date" = 19256 )
+ 
+ 
+ODBC_120: Executed: on connection 0
+Prepared statement ODBC_119
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                      87.147506
+Total SQL execution seconds were:                   7.597224
+Total SQL prepare seconds were:                     0.000033
+Total SQL describe seconds were:                    0.512562
+Total seconds used by the ODBC ACCESS engine were    95.836138
+ 
+NOTE: Table SGF2013.FACT_TRANSACTIONS_SEGMENT created, with 2132992 rows and 6 columns.
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           1:35.86
+      user cpu time       20.80 seconds
+      system cpu time     3.60 seconds
+      memory              806.50k
+      OS Memory           34308.00k
+      Timestamp           12/12/2012 09:28:14 PM
+      Page Faults                       65
+      Page Reclaims                     490
+      Page Swaps                        0
+      Voluntary Context Switches        152
+      Involuntary Context Switches      55
+      Block Input Operations            13104
+      Block Output Operations           208144
+      
+
+****** LOAD cube for snapshot = 19256 ******
+
+ 
+ODBC_121: Prepared: on connection 0
+SELECT * FROM public.DIM_LOCATION
+ 
+50                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+ 
+ODBC_122: Prepared: on connection 0
+SELECT * FROM public.DIM_TRANSACTION_TYPE
+ 
+ 
+ODBC_123: Prepared: on connection 0
+SELECT * FROM public.DIM_PARTY_ACCOUNT
+ 
+NOTE: The format on the "Year" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Month" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Date" level does not match the format originally used to load the cube or shared dimension. The original 
+      format will be used.
+NOTE: The format on the "Quarter" level does not match the format originally used to load the cube or shared dimension. The 
+      original format will be used.
+NOTE: The format on the "Month Year" level does not match the format originally used to load the cube or shared dimension. The 
+      original format will be used.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 1 new level member captions found for the "Date" level.
+NOTE: There were 1 new leaf members found for the "YMD" hierarchy.
+NOTE: There were 1 new leaf members found for the "YQMD" hierarchy.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_124: Prepared: on connection 0
+SELECT  "state", "county", "city", "location_key"  FROM public.DIM_LOCATION 
+ 
+ 
+ODBC_125: Executed: on connection 0
+Prepared statement ODBC_124
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 20000 keys found in the dimension table for the "Location" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10856117K bytes. Actual memory acquired was 5952K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_126: Prepared: on connection 0
+SELECT  "transaction_type", "transaction_category", "transaction_type_key"  FROM public.DIM_TRANSACTION_TYPE 
+ 
+ 
+ODBC_127: Executed: on connection 0
+Prepared statement ODBC_126
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+51                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 13 keys found in the dimension table for the "Transaction Type" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10839375K bytes. Actual memory acquired was 128K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The internal buffer size was 511K bytes. The number of internal buffers allocated was 10.
+NOTE: Multiple concurrent threads will be used to summarize data.
+ 
+ODBC_128: Prepared: on connection 0
+SELECT  "party_type", "party_number", "account_number", "naics_code", "party_name", "account_name", "account_open_date", 
+"party_account_key"  FROM public.DIM_PARTY_ACCOUNT 
+ 
+ 
+ODBC_129: Executed: on connection 0
+Prepared statement ODBC_128
+ 
+NOTE: Input data read is now complete.
+NOTE: Start reordering the primary types.
+NOTE: Reordering the primary types is now complete.
+NOTE: Start building subtypes.
+NOTE: Subtypes are now complete.
+NOTE: There were 14998144 keys found in the dimension table for the "Party Account" dimension, of which 0 were new.
+NOTE: The initial memory limit for classification tables was 10838965K bytes. Actual memory acquired was 9928512K bytes.
+NOTE: The utility file buffer size selected was 8K bytes.
+NOTE: The initial memory limit for classification tables was 10878159K bytes. Actual memory acquired was 310912K bytes.
+NOTE: The utility file buffer size selected was 16K bytes.
+NOTE: Number of new records added to NWAY aggregation: 2132964; Total records: 23463645.
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.069893
+Total SQL execution seconds were:                   0.000005
+Total SQL prepare seconds were:                     0.000033
+Total SQL describe seconds were:                    0.056175
+Total seconds used by the ODBC ACCESS engine were   657.260245
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                       0.000191
+Total SQL execution seconds were:                   0.000004
+Total SQL prepare seconds were:                     0.000020
+Total SQL describe seconds were:                    0.001305
+Total seconds used by the ODBC ACCESS engine were   657.234932
+ 
+ 
+Summary Statistics for ODBC are:
+Total row fetch seconds were:                     171.984024
+Total SQL execution seconds were:                   0.000005
+Total SQL prepare seconds were:                     0.000025
+Total SQL describe seconds were:                    0.955970
+Total seconds used by the ODBC ACCESS engine were   657.290274
+ 
+NOTE: Cube "Transaction Summary" was updated successfully.
+
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           12:57.88
+      user cpu time       7:44.73
+      system cpu time     3:37.52
+52                                                         The SAS System                         17:55 Wednesday, December 12, 2012
+
+      memory              12395496.51k
+      OS Memory           13421916.00k
+      Timestamp           12/12/2012 09:41:12 PM
+      Page Faults                       912
+      Page Reclaims                     6372584
+      Page Swaps                        0
+      Voluntary Context Switches        869355
+      Involuntary Context Switches      132625
+      Block Input Operations            103341000
+      Block Output Operations           62182152
+      
+
+******** Coalesce NWAY **********
+
+ERROR: The disk is full or the quota has been exceeded.
+WARNING: The path /projects/SGF2013/cubes/Transaction Summary is full or the quota has been exceeded
+ERROR: dawritp: Write failed: File=/projects/SGF2013/cubes/Transaction Summary/$8335095.dpf.000168db.22.1.spds9 Reason=The table or 
+an index was not created because of insufficient disk space errno=-2134906863
+ERROR: Error writing data to member nw0010r0. Reason=The table or an index was not created because of insufficient disk space
+ERROR: The table or an index was not created because of insufficient disk space
+ERROR: The table or an index was not created because of insufficient disk space
+Assertion failed: /sas/wky/mva-v930m2/tkspde/src/hptunnel.c/4810
+ERROR: An append operation was still active at close time
+ERROR: hpoepla: plstop failed: Member=nw0010r0 Reason=The table or an index was not created because of insufficient disk space
+ERROR: Unable to terminate an append operation
+ERROR: Internal software error detected
+ERROR: An SPD Engine aggregate table close failure.
+ERROR: Rows cannot be appended to an SPD Engine aggregate.
+ERROR: A failure occurred as a result of a problem in creating cube aggregations.
+ERROR: One or more aggregations cannot be coalesced.
+
+WARNING: No aggregations have been coalesced in the "Transaction Summary" cube.
+
+ERROR: Cube "Transaction Summary" cannot be coalesced.
+
+NOTE: The SAS System stopped processing this step because of errors.
+NOTE: PROCEDURE OLAP used (Total process time):
+      real time           3:39.88
+      user cpu time       32.99 seconds
+      system cpu time     1:16.39
+      memory              39929.51k
+      OS Memory           72748.00k
+      Timestamp           12/12/2012 09:44:52 PM
+      Page Faults                       141
+      Page Reclaims                     10303
+      Page Swaps                        0
+      Voluntary Context Switches        211628
+      Involuntary Context Switches      22071
+      Block Input Operations            49389472
+      Block Output Operations           59381680
+      
+****** FINISH loading for snapshot = 19256 ******
+*********** ERRORS DETECTED: ABORTING **********
+ERROR: Execution canceled by an %ABORT CANCEL statement.
+NOTE: The SAS System stopped processing due to receiving a CANCEL request.
