@@ -1,0 +1,1 @@
+proc append base=source_sales data=source_incoming_sales; run;
